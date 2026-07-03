@@ -906,23 +906,55 @@ function exportSetlistToGoogleDoc(){
       const date = document.getElementById('svc-date').value;
       const dateStr = date ? new Date(date+'T12:00:00').toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'}) : '';
 
-      let text = svcTitle + '\n';
-      if(dateStr) text += dateStr + '\n';
-      text += '\n';
       const sectionOrder=['Praise/Avivamiento','Worship/Adoración','Offering/Ofrenda','Altar Call','Special','Extra'];
       const grouped = {};
       setlist.forEach(s=>{ const sec=s.section||'Special'; (grouped[sec]=grouped[sec]||[]).push(s); });
-      const allSections = [...sectionOrder, ...Object.keys(grouped).filter(s=>!sectionOrder.includes(s))];
-      const headerRanges = [];
+      const allSections = [...sectionOrder, ...Object.keys(grouped).filter(s=>!sectionOrder.includes(s))].filter(sec=>grouped[sec] && grouped[sec].length);
+
+      const LABEL_RE = /^[A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ0-9 .,'\/-]{1,28}$/;
+
+      let text = '';
+      const titleRanges = [];
+      const sectionHeadRanges = [];
+      const songHeadRanges = [];
+      const labelRanges = [];
+      const bulletRanges = []; // per-section [start,end] spanning the summary song-title paragraphs
+
+      function add(str){ const start = text.length; text += str; return [start, text.length]; }
+
+      // ── Title block ──
+      { const [s,e] = add(svcTitle + '\n'); titleRanges.push([s, e-1]); }
+      if(dateStr) add(dateStr + '\n');
+      add('\n');
+
+      // ── Summary block (bulleted song titles per section) ──
       allSections.forEach(sec=>{
-        const songs = grouped[sec];
-        if(!songs || !songs.length) return;
-        const headerStart = text.length;
-        text += sec.toUpperCase() + '\n';
-        headerRanges.push([headerStart, text.length - 1]);
-        songs.forEach(s=>{
-          text += s.title + '\n';
-          text += (s.lyrics||'') + '\n\n';
+        const [s,e] = add(sec + '\n');
+        sectionHeadRanges.push([s, e-1]);
+        const bulletStart = text.length;
+        grouped[sec].forEach(song=>{ add(song.title + '\n'); });
+        const bulletEnd = text.length;
+        bulletRanges.push([bulletStart, bulletEnd]);
+        add('\n');
+      });
+
+      add('────────────────────────────\n\n');
+
+      // ── Full lyrics block ──
+      allSections.forEach(sec=>{
+        const [s,e] = add(sec.toUpperCase() + '\n\n');
+        sectionHeadRanges.push([s, s + sec.toUpperCase().length]);
+        grouped[sec].forEach(song=>{
+          const [ts, te] = add(song.title + '\n');
+          songHeadRanges.push([ts, te-1]);
+          (song.lyrics||'').split('\n').forEach(line=>{
+            const trimmed = line.trim();
+            const [ls, le] = add(line + '\n');
+            if(trimmed && trimmed.length <= 30 && LABEL_RE.test(trimmed) && trimmed === trimmed.toUpperCase()){
+              labelRanges.push([ls, le-1]);
+            }
+          });
+          add('\n');
         });
       });
 
@@ -937,23 +969,57 @@ function exportSetlistToGoogleDoc(){
 
       const baseIndex = 1;
       const endIndex = baseIndex + text.length;
-      const requests = [
-        { insertText: { location: { index: baseIndex }, text } },
-        { updateTextStyle: {
-            range: { startIndex: baseIndex, endIndex: endIndex },
-            textStyle: {
-              weightedFontFamily: { fontFamily },
-              fontSize: { magnitude: fontSize, unit: 'PT' },
-              foregroundColor: { color: { rgbColor: rgb } }
-            },
-            fields: 'weightedFontFamily,fontSize,foregroundColor'
-        }}
-      ];
-      headerRanges.forEach(([s,e])=>{
+      const requests = [{ insertText: { location: { index: baseIndex }, text } }];
+
+      // base font family + size across the whole doc
+      requests.push({ updateTextStyle: {
+        range: { startIndex: baseIndex, endIndex },
+        textStyle: { weightedFontFamily: { fontFamily }, fontSize: { magnitude: fontSize, unit: 'PT' } },
+        fields: 'weightedFontFamily,fontSize'
+      }});
+
+      // service title
+      titleRanges.forEach(([s,e])=>{
         requests.push({ updateTextStyle: {
           range: { startIndex: baseIndex+s, endIndex: baseIndex+e },
-          textStyle: { bold: true, fontSize: { magnitude: fontSize+2, unit: 'PT' } },
+          textStyle: { bold: true, fontSize: { magnitude: fontSize+8, unit: 'PT' } },
           fields: 'bold,fontSize'
+        }});
+      });
+
+      // section headings — colored + large
+      sectionHeadRanges.forEach(([s,e])=>{
+        requests.push({ updateTextStyle: {
+          range: { startIndex: baseIndex+s, endIndex: baseIndex+e },
+          textStyle: { bold: true, fontSize: { magnitude: fontSize+16, unit: 'PT' }, foregroundColor: { color: { rgbColor: rgb } } },
+          fields: 'bold,fontSize,foregroundColor'
+        }});
+      });
+
+      // song headings (in the full-lyrics block) — colored + medium
+      songHeadRanges.forEach(([s,e])=>{
+        requests.push({ updateTextStyle: {
+          range: { startIndex: baseIndex+s, endIndex: baseIndex+e },
+          textStyle: { bold: true, fontSize: { magnitude: fontSize+6, unit: 'PT' }, foregroundColor: { color: { rgbColor: rgb } } },
+          fields: 'bold,fontSize,foregroundColor'
+        }});
+      });
+
+      // structural labels — CORO / VERSE / BRIDGE / PUENTE / TAG etc — bold black
+      labelRanges.forEach(([s,e])=>{
+        requests.push({ updateTextStyle: {
+          range: { startIndex: baseIndex+s, endIndex: baseIndex+e },
+          textStyle: { bold: true },
+          fields: 'bold'
+        }});
+      });
+
+      // bulleted song list in the summary block
+      bulletRanges.forEach(([s,e])=>{
+        if(e <= s) return;
+        requests.push({ createParagraphBullets: {
+          range: { startIndex: baseIndex+s, endIndex: baseIndex+e },
+          bulletPreset: 'BULLET_DISC_CIRCLE_SQUARE'
         }});
       });
 
