@@ -1,0 +1,963 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Worship Setlist Builder — Sandy Apostolic</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="https://apis.google.com/js/api.js"></script>
+<script src="https://accounts.google.com/gsi/client"></script>
+</head>
+<body>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #ffffff; --bg2: #f7f6f3; --bg3: #f0efe9;
+    --text: #1a1a1a; --text2: #6b6b6b; --text3: #9a9a9a;
+    --border: rgba(0,0,0,0.1); --border2: rgba(0,0,0,0.18);
+    --accent: #4a3fa0;
+    --success-bg: #eaf3de; --success-text: #27500a;
+    --danger-bg: #fcebeb; --danger-text: #791f1f;
+    --info-bg: #e6f1fb; --info-text: #0c447c;
+    --radius: 8px; --radius-lg: 12px;
+  }
+  body { font-family: 'Georgia', 'Times New Roman', serif; background: #f0efe9; color: #1a1a1a; min-height: 100vh; }
+  .app { max-width: 700px; margin: 0 auto; padding: 1.5rem 1rem 4rem; }
+  .app-header { text-align: center; margin-bottom: 1.5rem; }
+  .app-header h1 { font-size: 21px; font-weight: normal; letter-spacing: -0.02em; }
+  .app-header p { font-size: 13px; color: #6b6b6b; margin-top: 4px; font-family: system-ui, sans-serif; }
+  .tabs { display: flex; background: #f7f6f3; border-radius: var(--radius); border: 0.5px solid var(--border); overflow: hidden; margin-bottom: 1.25rem; }
+  .tab { flex: 1; padding: 9px 4px; font-size: 13px; font-family: system-ui, sans-serif; border: none; background: transparent; color: #6b6b6b; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 5px; transition: all .15s; }
+  .tab.active { background: #ffffff; color: #1a1a1a; font-weight: 500; box-shadow: inset 0 0 0 0.5px var(--border2); border-radius: var(--radius); }
+  .card { background: #ffffff; border: 0.5px solid var(--border); border-radius: var(--radius-lg); padding: 1rem 1.25rem; margin-bottom: 1rem; }
+  label, .lbl { display: block; font-size: 11px; font-family: system-ui, sans-serif; color: #9a9a9a; text-transform: uppercase; letter-spacing: .07em; margin-bottom: 5px; }
+  input[type=text], input[type=date], select, textarea { width: 100%; padding: 8px 10px; border: 0.5px solid var(--border2); border-radius: var(--radius); font-size: 14px; font-family: system-ui, sans-serif; color: #1a1a1a; background: #ffffff; outline: none; transition: border-color .15s; }
+  input:focus, select:focus, textarea:focus { border-color: #4a3fa0; }
+  textarea { resize: vertical; line-height: 1.6; }
+  button { padding: 7px 14px; border: 0.5px solid var(--border2); border-radius: var(--radius); font-size: 13px; font-family: system-ui, sans-serif; background: #ffffff; color: #1a1a1a; cursor: pointer; transition: all .15s; display: inline-flex; align-items: center; gap: 5px; }
+  button:hover { background: #f7f6f3; }
+  button.primary { background: var(--accent); color: #fff; border-color: #4a3fa0; }
+  button.primary:hover { opacity: .9; }
+  .btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: .75rem; }
+  .badge { font-size: 11px; padding: 2px 8px; border-radius: var(--radius); white-space: nowrap; font-family: system-ui, sans-serif; }
+  .badge.praise { background: #eeedfe; color: #3c3489; }
+  .badge.worship { background: #e1f5ee; color: #085041; }
+  .badge.offering { background: #faeeda; color: #633806; }
+  .badge.altar { background: #faece7; color: #712b13; }
+  .badge.special { background: #f7f6f3; color: #6b6b6b; }
+  .song-row { display: flex; align-items: center; gap: 8px; padding: 10px 0; border-bottom: 0.5px solid var(--border); }
+  .song-row:last-child { border-bottom: none; }
+  .song-title { flex: 1; font-size: 14px; font-weight: 500; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: system-ui, sans-serif; color: #1a1a1a; }
+  .drag-handle { color: #9a9a9a; cursor: grab; font-size: 17px; }
+  .icon-btn { background: none; border: none; color: #9a9a9a; cursor: pointer; font-size: 17px; padding: 4px 5px; border-radius: 6px; }
+  .icon-btn:hover { background: #f7f6f3; color: #1a1a1a; }
+  .icon-btn.danger:hover { background: var(--danger-bg); color: var(--danger-text); }
+  .status { font-size: 13px; padding: 8px 12px; border-radius: var(--radius); margin-bottom: .75rem; display: none; font-family: system-ui, sans-serif; }
+  .status.info { background: var(--info-bg); color: var(--info-text); display: block; }
+  .status.success { background: var(--success-bg); color: var(--success-text); display: block; }
+  .status.error { background: var(--danger-bg); color: var(--danger-text); display: block; }
+  .spinner { display: inline-block; width: 13px; height: 13px; border: 2px solid var(--border2); border-top-color: #4a3fa0; border-radius: 50%; animation: spin .7s linear infinite; vertical-align: middle; margin-right: 5px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .lyrics-prev { background: #f7f6f3; border-radius: var(--radius); padding: 10px 12px; font-size: 12px; white-space: pre-wrap; max-height: 160px; overflow-y: auto; color: #6b6b6b; line-height: 1.6; margin-top: 6px; font-family: system-ui, sans-serif; }
+  .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px,1fr)); gap: 8px; margin-bottom: 1rem; }
+  .stat { background: #f7f6f3; border-radius: var(--radius); padding: .75rem 1rem; }
+  .stat-n { font-size: 22px; font-weight: 500; color: #1a1a1a; font-family: system-ui, sans-serif; }
+  .stat-l { font-size: 12px; color: #6b6b6b; margin-top: 2px; font-family: system-ui, sans-serif; }
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .field { margin-bottom: 10px; }
+  .overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 50; align-items: center; justify-content: center; padding: 1rem; }
+  .overlay.open { display: flex; }
+  .modal { background: #ffffff; border-radius: var(--radius-lg); border: 0.5px solid var(--border2); padding: 1.5rem; width: 560px; max-width: 100%; max-height: 85vh; overflow-y: auto; }
+  .modal h3 { font-size: 17px; font-weight: normal; margin-bottom: 1rem; }
+  .empty { padding: 1.5rem 0; text-align: center; font-size: 13px; color: #9a9a9a; font-family: system-ui, sans-serif; }
+  .search-row { display: flex; gap: 8px; margin-bottom: 1rem; }
+  .drive-row { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 0.5px solid var(--border); font-size: 13px; font-family: system-ui, sans-serif; }
+  .drive-row:last-child { border-bottom: none; }
+  .section-divider { font-size: 11px; color: #9a9a9a; text-transform: uppercase; letter-spacing: .07em; padding: 8px 0 4px; margin-top: 4px; font-family: system-ui, sans-serif; }
+  option { color: #1a1a1a; background: #ffffff; font-family: system-ui, sans-serif; font-size: 14px; }
+  datalist { color: #1a1a1a; }
+</style>
+</head>
+
+<div class="app">
+  <div class="app-header">
+    <h1>Worship Setlist Builder</h1>
+    <p>Sandy Apostolic Church &nbsp;·&nbsp; Search Drive · Build setlists · Manage library</p>
+  </div>
+
+  <div class="tabs" id="main-tabs">
+    <button class="tab active" onclick="switchMain('setlist')">Setlist</button>
+    <button class="tab" onclick="switchMain('library')">Library</button>
+    <button class="tab" onclick="switchMain('medley')">♪ Medley</button>
+    <button class="tab" onclick="switchMain('events')">Events</button>
+    <button class="tab" onclick="switchMain('add')">+ Add</button>
+  </div>
+
+  <div id="status" class="status"></div>
+
+  <!-- SETLIST -->
+  <div id="pane-setlist">
+    <div class="card">
+      <div class="two-col" style="margin-bottom:10px">
+        <div class="field"><label>Service date</label><input type="date" id="svc-date" oninput="saveSetlistState()" /></div>
+        <div class="field"><label>Title</label><input type="text" id="svc-title" placeholder="e.g. Sunday Service" oninput="saveSetlistState()" /></div>
+      </div>
+      <div id="setlist-rows"><div class="empty">No songs yet — pick from library or search Drive</div></div>
+    </div>
+    <div class="btn-row">
+      <button onclick="switchMain('library')">Pick from library</button>
+      <button onclick="openDriveModal()">Search Drive</button>
+      <button onclick="previewSetlist()">Preview</button>
+      <button class="primary" onclick="copySetlist()">Copy setlist</button>
+      <button onclick="clearSetlist()" style="color:#791f1f">Clear</button>
+    </div>
+  </div>
+
+  <!-- LIBRARY -->
+  <div id="pane-library" style="display:none">
+    <div class="stat-grid" id="lib-stats"></div>
+    <div class="search-row">
+      <input type="text" id="lib-search" placeholder="Search songs, lyrics, artist…" oninput="renderLibrary()" style="flex:1" />
+      <select id="lib-filter" onchange="renderLibrary()" style="width:auto">
+        <option value="">All sections</option>
+        <option>Praise/Avivamiento</option>
+        <option>Worship/Adoración</option>
+        <option>Offering/Ofrenda</option>
+        <option>Altar Call</option>
+        <option>Special</option>
+      <option>Extra</option>
+      </select>
+    </div>
+    <div class="card" style="padding:0 1.25rem"><div id="lib-rows"></div></div>
+    <div class="btn-row">
+      <button onclick="exportJSON()">Download JSON</button>
+      <button onclick="resetLibrary()">Reload library</button>
+    </div>
+  </div>
+
+  <!-- MEDLEYS -->
+  <div id="pane-medley" style="display:none">
+    <div class="card">
+      <div style="font-size:13px;color:var(--text2);font-family:system-ui,sans-serif;margin-bottom:1rem;line-height:1.6">
+        These medley are based on how songs have actually been used together in your past setlists — medleys, back-to-back flows, and song switches documented in your Drive docs. You can also get AI suggestions for any song.
+      </div>
+      <!-- Search for suggestions -->
+      <label>Get AI suggestions for a song</label>
+      <div class="search-row" style="margin-bottom:0">
+        <input type="text" id="medley-search" placeholder="Type a song name…" style="flex:1;color:#1a1a1a;background:#fff" list="medley-datalist" onkeydown="if(event.key==='Enter')getAISuggestions()" />
+        <datalist id="medley-datalist"></datalist>
+        <button onclick="getAISuggestions()">Suggest</button>
+      </div>
+      <div id="ai-suggestions" style="margin-top:10px;font-size:13px;color:var(--text3);font-family:system-ui,sans-serif"></div>
+    </div>
+
+    <!-- Historical medley from your docs -->
+    <div class="card" style="padding:0 1.25rem">
+      <div style="padding:10px 0 6px;font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;font-family:system-ui,sans-serif">Previous Medley's From Setlist</div>
+      <div id="medley-list"></div>
+    </div>
+  </div>
+
+  <!-- EVENTS -->
+  <div id="pane-events" style="display:none">
+    <div class="card">
+      <div style="font-size:13px;color:var(--text2);font-family:system-ui,sans-serif;margin-bottom:1rem;line-height:1.6">
+        Select an event and we'll suggest songs from your library that fit the occasion — plus you can get AI-powered suggestions for a custom setlist.
+      </div>
+      <label>Select event</label>
+      <select id="event-select" onchange="renderEventSuggestions()" style="margin-bottom:1rem">
+        <option value="">— Choose an event —</option>
+        <option value="marriage">Marriage Conference</option>
+        <option value="friends">Friend's Day</option>
+        <option value="kids">Kid's Day</option>
+        <option value="mothers">Mother's Day</option>
+        <option value="fathers">Father's Day</option>
+        <option value="youth">Youth Day</option>
+        <option value="baptism">Baptism Day</option>
+        <option value="florAzul">Flor Azul — Missionary Service</option>
+        <option value="preciosa">Preciosa Semilla — Missionary Service</option>
+        <option value="alcanzando">Alcanzando América — Missionary Service</option>
+        <option value="offering">Offering Songs</option>
+        <option value="thanksgiving">Thanksgiving Day</option>
+        <option value="newYear">New Year Celebration</option>
+        <option value="pastor">Día del Pastor</option>
+        <option value="esperanza">Abrazando Esperanza</option>
+        <option value="aceite">Aceite de Las Viudas</option>
+      </select>
+      <div id="event-description" style="font-size:13px;color:var(--text2);font-family:system-ui,sans-serif;padding:8px 12px;background:var(--bg2);border-radius:var(--radius);margin-bottom:1rem;display:none;line-height:1.6"></div>
+    </div>
+
+    <div id="event-suggestions-wrap" style="display:none">
+      <div class="card" style="padding:0 1.25rem">
+        <div style="padding:10px 0 6px;font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;font-family:system-ui,sans-serif">Suggested songs from your library</div>
+        <div id="event-song-list"></div>
+      </div>
+      <div class="card">
+        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;font-family:system-ui,sans-serif;margin-bottom:8px">AI — Build a full setlist for this event</div>
+        <p style="font-size:13px;color:var(--text2);font-family:system-ui,sans-serif;margin-bottom:10px">Get a suggested order with section breakdown tailored to this occasion.</p>
+        <button onclick="getEventSetlist()">Build event setlist</button>
+        <div id="event-ai-result" style="margin-top:12px;font-size:13px;font-family:system-ui,sans-serif;line-height:1.7"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ADD SONG -->
+  <div id="pane-add" style="display:none">
+    <div class="card">
+      <label>Add from Google Drive</label>
+      <p style="font-size:13px;color:var(--text2);margin-bottom:10px;font-family:system-ui,sans-serif">Pick an existing lyrics doc from your Drive.</p>
+      <button onclick="openGoogleDrivePicker('library')">📄 Browse Google Drive</button>
+      <div id="add-drive-results" style="font-size:13px;color:var(--text3);font-family:system-ui,sans-serif;margin-top:10px">Pick a doc to import its lyrics.</div>
+    </div>
+    <div class="card">
+      <label>Add manually</label>
+      <div class="two-col">
+        <div class="field"><label>Song title</label><input type="text" id="new-title" placeholder="e.g. Oceans" /></div>
+        <div class="field"><label>Section</label>
+          <select id="new-section">
+            <option>Praise/Avivamiento</option><option>Worship/Adoración</option>
+            <option>Offering/Ofrenda</option><option>Altar Call</option><option>Special</option>
+          <option>Extra</option>
+          </select>
+        </div>
+      </div>
+      <div class="two-col">
+        <div class="field"><label>Artist</label><input type="text" id="new-artist" placeholder="e.g. Hillsong" /></div>
+        <div class="field"><label>Language</label>
+          <select id="new-lang">
+            <option>Bilingual (EN/ES)</option><option>English only</option><option>Spanish only</option>
+          </select>
+        </div>
+      </div>
+      <div class="field"><label>Lyrics</label><textarea id="new-lyrics" rows="7" placeholder="Paste lyrics here…"></textarea></div>
+      <div class="btn-row">
+        <button class="primary" onclick="saveNewSong()">Save Save to library</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- DRIVE MODAL -->
+<div class="overlay" id="drive-overlay">
+  <div class="modal">
+    <h3>Add from Google Drive</h3>
+    <div style="margin-bottom:10px;display:flex;align-items:center;gap:8px">
+      <select id="modal-section" style="width:auto">
+        <option>Praise/Avivamiento</option><option>Worship/Adoración</option>
+        <option>Offering/Ofrenda</option><option>Altar Call</option><option>Special</option>
+      <option>Extra</option>
+      </select>
+      <span style="font-size:12px;color:var(--text3);font-family:system-ui,sans-serif">Section to assign</span>
+    </div>
+    <button onclick="openGoogleDrivePicker('setlist')">📄 Browse Google Drive</button>
+    <div id="modal-drive-results" style="font-size:13px;color:var(--text3);font-family:system-ui,sans-serif;margin-top:10px">Pick a doc from your Drive to import its lyrics.</div>
+    <div class="btn-row"><button onclick="closeDriveModal()">Close</button></div>
+  </div>
+</div>
+
+<!-- VIEW MODAL -->
+<div class="overlay" id="view-overlay">
+  <div class="modal">
+    <h3 id="view-title-el"></h3>
+    <div id="view-meta" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px"></div>
+    <div class="lyrics-prev" id="view-lyrics-el" style="max-height:300px"></div>
+    <div class="btn-row">
+      <button class="primary" onclick="addToSetlistFromView()">+ Add to setlist</button>
+      <button onclick="openEdit(viewIdx)">Edit Edit</button>
+      <button onclick="closeView()">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- EDIT MODAL -->
+<div class="overlay" id="edit-overlay">
+  <div class="modal">
+    <h3>Edit song</h3>
+    <div class="two-col">
+      <div class="field"><label>Title</label><input type="text" id="edit-title" /></div>
+      <div class="field"><label>Section</label>
+        <select id="edit-section">
+          <option>Praise/Avivamiento</option><option>Worship/Adoración</option>
+          <option>Offering/Ofrenda</option><option>Altar Call</option><option>Special</option>
+        </select>
+      </div>
+    </div>
+    <div class="two-col">
+      <div class="field"><label>Artist</label><input type="text" id="edit-artist" /></div>
+      <div class="field"><label>Language</label>
+        <select id="edit-lang">
+          <option>Bilingual (EN/ES)</option><option>English only</option><option>Spanish only</option>
+        </select>
+      </div>
+    </div>
+    <div class="field"><label>Lyrics</label><textarea id="edit-lyrics" rows="8"></textarea></div>
+    <div class="btn-row">
+      <button class="primary" onclick="saveEdit()">Save changes</button>
+      <button onclick="closeEdit()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- PREVIEW MODAL -->
+<div class="overlay" id="preview-overlay">
+  <div class="modal">
+    <h3>Setlist preview</h3>
+    <div id="preview-content"></div>
+    <div class="btn-row">
+      <button class="primary" onclick="copySetlist()">Copy setlist</button>
+      <button onclick="document.getElementById('preview-overlay').classList.remove('open')">Close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const BADGE_CLASS = {'Praise/Avivamiento':'praise','Worship/Adoración':'worship','Offering/Ofrenda':'offering','Altar Call':'altar','Special':'special','Extra':'special'};
+
+const SUPABASE_URL = 'https://zgkpprzfspzvneslrxlt.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inpna3Bwcnpmc3B6dm5lc2xyeGx0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI4NDcyODQsImV4cCI6MjA5ODQyMzI4NH0.OmcLXov0SpczoJ1kAfPGTvp0OUTlQwLY7I1avg9QumE';
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// Song library now lives in Supabase — see loadLibrary().
+
+let library = [], setlist = [], viewIdx = -1, editIdx = -1;
+let setlistSaveTimer = null;
+
+// ── SUPABASE-BACKED LIBRARY + SETLIST (synced across every device) ──────────
+async function loadLibrary(){
+  const { data, error } = await sb.from('worship_songs').select('*').order('created_at', { ascending: true });
+  if(error){ setStatus('Could not load library from Supabase: ' + error.message, 'error'); library = []; return; }
+  library = data.map(s => ({
+    id: s.id, title: s.title, section: s.section, artist: s.artist || '',
+    language: s.language || '', lyrics: s.lyrics || '', addedDate: s.added_date || ''
+  }));
+}
+
+async function loadSetlistState(){
+  const { data, error } = await sb.from('worship_current_setlist').select('*').eq('id', 1).maybeSingle();
+  if(error || !data) return;
+  setlist = Array.isArray(data.songs) ? data.songs : [];
+  if(data.service_date) document.getElementById('svc-date').value = data.service_date;
+  if(data.service_title) document.getElementById('svc-title').value = data.service_title;
+}
+
+function saveSetlistState(){
+  clearTimeout(setlistSaveTimer);
+  setlistSaveTimer = setTimeout(async () => {
+    const payload = {
+      id: 1,
+      service_date: document.getElementById('svc-date').value || null,
+      service_title: document.getElementById('svc-title').value || null,
+      songs: setlist
+    };
+    const { error } = await sb.from('worship_current_setlist').upsert(payload);
+    if(error) setStatus('Could not save setlist: ' + error.message, 'error');
+  }, 400);
+}
+
+async function init(){
+  setStatus('Loading your library…', 'info');
+  await loadLibrary();
+  await loadSetlistState();
+  if(!document.getElementById('svc-date').value){
+    document.getElementById('svc-date').value = new Date().toISOString().split('T')[0];
+  }
+  renderLibrary();
+  renderStats();
+  renderSetlist();
+  document.getElementById('status').style.display = 'none';
+}
+
+async function resetLibrary(){
+  if(!confirm('Reload the library from the database? Any unsaved local changes will be discarded.')) return;
+  setStatus('Reloading…', 'info');
+  await loadLibrary();
+  renderLibrary(); renderStats();
+  setStatus(`Library reloaded — ${library.length} songs loaded.`, 'success');
+}
+
+function setStatus(msg,type){
+  const el=document.getElementById('status');
+  el.textContent=msg; el.className='status '+type;
+  if(type==='success') setTimeout(()=>el.style.display='none', 4000);
+}
+
+// ── HISTORICAL MEDLEYS from all your Drive docs ─────────────────────────────
+const MEDLEYS = [
+  // MEDLEYS (songs that flow directly into each other)
+  {type:'medley', songs:['Celebra Victorioso','Remolineando','El Poderoso De Israel','Grita Canta Danza','No Hay Santo Como El Senor'], note:'Praise medley — Celebra Victorioso full sequence ending with CELEBRA VICTORIOSO finale, drop into Remolineando, flow into El Poderoso De Israel, then Grita Canta Danza, close with No Hay Santo Como El Senor as an extra tag.'},
+  {type:'medley', songs:['Celebra Victorioso','Remolineando','Gozate Delante Del Senor','Cristo Vive'], note:'Bilingual praise medley — Celebra Victorioso runs through its full sequence ending with the CELEBRA VICTORIOSO finale, drop straight into Remolineando, then ease into Gozate, close with Cristo Vive building from soft into full declaration. Documented in your setlist docs.'},
+  {type:'medley', songs:['Holy Ghost',"Can't Stop Praising His Name"], note:'Frequently opened services together — Holy Ghost flows straight into Can\'t Stop. Used in 5/31/26, 10/5/25, 9/21 setlists.'},
+  {type:'medley', songs:['Sera Llena La Tierra','Levantate Señor','Yo Celebraré','Hosanna Al Altísimo','Cantaré Al Señor Por Siempre'], note:'Jubilo Medley — this full sequence appears in 4/6/25 and 3/29/26 setlists. All Spanish, high energy praise.'},
+  {type:'medley', songs:['Worthy / Digno','Worthy of It All / Digno Eres Tú'], note:'Always paired together — slow down between them. Worthy flows into Worthy of It All. Used across multiple setlists.'},
+  {type:'medley', songs:['Always On Time / Siempre A Tiempo','Same God / El Mismo Dios'], note:'Always On Time runs full bilingual sequence ending soft, flows into Same God (Bridge → Puente 1 → Puente 2 → Bridge 2), then Bridge 2 transitions back into Always On Time Bridge → Chorus → TAG to close.'},
+  {type:'medley', songs:['Freedom Medley / Libre',"Can't Stop Praising His Name"], note:'Freedom Medley transitions into "He\'s Alive" chant, then into How Great Is Our God. High energy praise opener.'},
+  {type:'medley', songs:['Grande Es El Amor de Dios','Te Alabo Te Alabo','Santo Santo Santo','Bendito Sea El Señor'], note:'Grande Es El Amor Medley — these four flow together in the dedicated medley doc.'},
+  {type:'medley', songs:['What A God','Better Is One Day / Mejor Es Un Día'], note:'Better Is One Day flows back into What A God chorus in the 9/21 setlist.'},
+  {type:'medley', songs:['Yeshua','Te Exaltamos / When I Speak Your Name','Quebranta Mi Corazón','Pablo Y Silas'], note:'Altar call sequence from 9/1/24 — deep worship flow, Yeshua into Te Exaltamos into Quebranta into Pablo y Silas.'},
+  {type:'medley', songs:['La Sunamita / Beloved','Tuyo Es El Reino / Yours Is The Kingdom'], note:'Paired in 9/1/24 setlist — intimate worship flowing into declaration.'},
+  {type:'medley', songs:['Goodness Of God / Bondad De Dios','Beautiful Name / Majestuoso'], note:'Used together in 1/12 setlist — thanksgiving into exaltation of the Name.'},
+  {type:'medley', songs:['Devuélveme El Gozo','I Give Myself Away / Me Entrego A Ti Señor','Ven Espíritu Ven / Come Holy Spirit'], note:'Altar call trio from 1/12 setlist — repentance, surrender, then inviting the Spirit.'},
+
+  // NATURAL FLOWS (songs that pair well in same section)
+  {type:'flow', songs:['Mighty Name of Jesus','I Speak Jesus'], note:'Always used back-to-back in Worship section. Appear together in 5/31/26, 3/29/26, and other setlists.'},
+  {type:'flow', songs:['Mighty Name of Jesus','I Speak Jesus','How Great Is Our God'], note:'This trio is your most repeated Worship block — used in at least 3 different setlists.'},
+  {type:'flow', songs:['Firm Foundation / Roca Firme','Great Are You Lord / Grande Eres Dios','Reckless Love / Amor Sin Condición'], note:'Worship block from 4/6/25 setlist — faith, praise, then the overwhelming love of God.'},
+  {type:'flow', songs:['Que Se Abra El Cielo / Let the Heavens Open','Tu Presencia Es El Cielo / Your Presence is Heaven'], note:'Paired in Sunday 04/05 setlist — both focus on God\'s presence, one as invitation, one as declaration.'},
+  {type:'flow', songs:['Nada Es Imposible / Nothing Is Impossible','Que Se Llene Tu Casa / Fill Your House'], note:'Paired as Praise opener in 9/1/24 setlist — faith declaration into invitation for God\'s glory.'},
+  {type:'flow', songs:['Cielos Abiertos / Open Heavens','King of Glory / Rey De Gloria'], note:'Worship pair from 9/1/24 — both about heaven opening and God\'s presence entering.'},
+  {type:'flow', songs:['Hosanna Al Rey','Los Muros Caerán / The Walls Are Falling','Ya Se Oye El Shofar / Come Oh Lord'], note:'Praise trio from 1/4/26 — bold declaration opening that builds energy progressively.'},
+  {type:'flow', songs:['You Are Good / Eres Fiel','Nombre No Hay / No Other Name'], note:'Praise pair from 5/18/25 — faithfulness of God into exaltation of His name.'},
+  {type:'flow', songs:['Covenant Keeping God','What A God'], note:'Worship pair from 5/18/25 — both center on the nature and character of God.'},
+  {type:'flow', songs:['Santo Es El Que Vive / Holy Is The One Who Lives','Llévame Al Lugar Santísimo','Tu Nombre Es Santo'], note:'Altar call trio from 5/18/25 — holiness theme throughout, building reverence.'},
+  {type:'flow', songs:['Always On Time / Siempre A Tiempo','Creo En Ti / I Believe','Wrap Me In Your Arms'], note:'Altar call sequence from 10/5/25 setlist.'},
+  {type:'flow', songs:['Gracias / Thank You Jesus','A Ti Me Rindo / I Surrender'], note:'Altar call pair from 1/4/26 and 9/21 — gratitude flowing into full surrender.'},
+  {type:'flow', songs:['El Espíritu De Dios / Spirit of the Lord','Dios Manda Lluvia'], note:'Both invite the Holy Spirit — natural pair for altar call or transition into prayer time.'},
+  {type:'flow', songs:['Way Maker / Milagroso','Fortaleza Divina'], note:'Paired in 9/21 setlist under Worship — miracle-working God into strength He provides.'},
+  {type:'flow', songs:['Espíritu Santo Ven / Holy Spirit Come','Mesías / Messiah','Yeshua','Quiero Conocer A Jesús / I Want to Know Jesus','Ven Señor / Come Like You Promised'], note:'Deep altar call sequence from Sunday 01/26 — a full Spirit-led altar flow.'},
+];
+
+function renderMedley(filter){
+  filter = filter || '';
+  var list = document.getElementById('medley-list');
+  if(!list) return;
+  var html = '';
+  var shown = 0;
+  for(var ri=0; ri<MEDLEYS.length; ri++){
+    var p = MEDLEYS[ri];
+    if(filter && !p.songs.some(function(s){ return s.toLowerCase().indexOf(filter.toLowerCase()) > -1; })) continue;
+    shown++;
+    var typeColor = p.type==='medley' ? '#3c3489' : '#085041';
+    var typeBg = p.type==='medley' ? '#eeedfe' : '#e1f5ee';
+    var typeLabel = p.type==='medley' ? 'Medley' : 'Natural flow';
+    var songsHtml = '';
+    for(var j=0; j<p.songs.length; j++){
+      songsHtml += '<strong style="font-size:13px;font-family:system-ui,sans-serif;color:#1a1a1a">'+p.songs[j]+'</strong>';
+      if(j < p.songs.length-1) songsHtml += '<span style="color:#9a9a9a;margin:0 4px"> &rarr; </span>';
+    }
+    html += '<div style="padding:12px 0;border-bottom:0.5px solid #e0dfdb;">'
+      + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap">'
+      + '<span style="font-size:11px;padding:2px 8px;border-radius:6px;background:'+typeBg+';color:'+typeColor+';font-family:system-ui,sans-serif">'+typeLabel+'</span>'
+      + '<div style="line-height:1.8">'+songsHtml+'</div>'
+      + '</div>'
+      + '<p style="font-size:12px;color:#6b6b6b;font-family:system-ui,sans-serif;line-height:1.5;margin-bottom:8px">'+p.note+'</p>'
+      + '<button style="font-size:12px;padding:5px 12px;cursor:pointer" onclick="addMedleyByIndex('+ri+')">+ Add all to setlist</button>'
+      + '</div>';
+  }
+  if(!shown) list.innerHTML = '<div style="padding:1.5rem 0;text-align:center;font-size:13px;color:#9a9a9a;font-family:system-ui,sans-serif">No medley found for that song.</div>';
+  else list.innerHTML = html;
+}
+
+
+function addMedleyByIndex(ri){
+  var p = MEDLEYS[ri];
+  if(!p){ setStatus('Medley not found.','error'); return; }
+  var added = 0;
+  for(var k=0; k<p.songs.length; k++){
+    var title = p.songs[k];
+    var match = null;
+    for(var m=0; m<library.length; m++){
+      if(library[m].title.toLowerCase() === title.toLowerCase()){ match = library[m]; break; }
+    }
+    if(!match){
+      var partial = title.toLowerCase().split('/')[0].trim();
+      for(var m=0; m<library.length; m++){
+        if(library[m].title.toLowerCase().indexOf(partial) > -1){ match = library[m]; break; }
+      }
+    }
+    if(match) setlist.push(JSON.parse(JSON.stringify(match)));
+    else setlist.push({title:title,section:'Praise/Avivamiento',artist:'',language:'',lyrics:''});
+    added++;
+  }
+  renderSetlist();
+  saveSetlistState();
+  switchMain('setlist');
+  setStatus('Added '+added+' songs to setlist.','success');
+}
+
+
+function addSongsToSetlist(songsJson){
+  let songs;
+  try { songs = JSON.parse(songsJson.replace(/&quot;/g,'"')); } catch(e){ songs = songsJson; }
+  let added = 0;
+  songs.forEach(songTitle => {
+    let match = library.find(s => s.title.toLowerCase() === songTitle.toLowerCase());
+    if(!match) match = library.find(s => s.title.toLowerCase().includes(songTitle.toLowerCase().split('/')[0].trim()));
+    setlist.push(match ? {...match} : {title:songTitle, section:'Praise/Avivamiento', artist:'', language:'', lyrics:''});
+    added++;
+  });
+  renderSetlist();
+  saveSetlistState();
+  switchMain('setlist');
+  setStatus('Added '+added+' songs to setlist.', 'success');
+}
+
+function addMedleyToSetlist(i){
+  const medley = MEDLEYS[i];
+  if(!medley){ setStatus('Could not find medley. Try reloading the library.','error'); return; }
+  let added = 0;
+  medley.songs.forEach(songTitle => {
+    // Try exact match first, then partial match
+    let match = library.find(s => s.title.toLowerCase() === songTitle.toLowerCase());
+    if(!match) match = library.find(s => s.title.toLowerCase().includes(songTitle.toLowerCase().split('/')[0].trim()));
+    if(match){
+      setlist.push({...match});
+    } else {
+      setlist.push({title: songTitle, section:'Praise/Avivamiento', artist:'', language:'', lyrics:''});
+    }
+    added++;
+  });
+  renderSetlist();
+  saveSetlistState();
+  switchMain('setlist');
+  setStatus(`Added ${added} songs to setlist.`, 'success');
+}
+
+function getAISuggestions(){
+  const q = document.getElementById('medley-search').value.trim();
+  if(!q){ setStatus('Type a song name first.','error'); return; }
+  // Filter medley list below
+  renderMedley(q);
+  // Build copy-prompt box
+  const el = document.getElementById('ai-suggestions');
+  const songList = library.map(s=>s.title).join(', ');
+  const promptText = 'Suggest 2-3 songs from our library that pair well with "' + q + '" as a medley or natural flow for our bilingual (EN/ES) worship service. Only explain where to transition and how — no extra commentary. Library: ' + songList;
+  el.innerHTML =
+    '<div style="background:#e6f1fb;border-radius:8px;padding:12px 14px;font-family:system-ui,sans-serif;">' +
+      '<div style="font-size:12px;color:#0c447c;margin-bottom:8px;font-weight:500">Copy this prompt and paste it into your Claude chat:</div>' +
+      '<textarea id="medley-prompt-ta" readonly style="width:100%;font-size:12px;font-family:system-ui,sans-serif;border:0.5px solid #b3d4f5;border-radius:6px;padding:8px;background:#fff;color:#1a1a1a;line-height:1.5;resize:none;height:80px">' + promptText.replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</textarea>' +
+      '<button onclick="copyMedleyPrompt()" style="margin-top:8px;font-size:12px;padding:5px 14px" id="medley-copy-btn">Copy</button>' +
+    '</div>';
+}
+
+function copyMedleyPrompt(){
+  const ta = document.getElementById('medley-prompt-ta');
+  const btn = document.getElementById('medley-copy-btn');
+  ta.select();
+  navigator.clipboard.writeText(ta.value)
+    .then(()=>{ btn.textContent='✓ Copied!'; setTimeout(()=>btn.textContent='Copy',2500); })
+    .catch(()=>{ document.execCommand('copy'); btn.textContent='✓ Copied!'; setTimeout(()=>btn.textContent='Copy',2500); });
+}
+
+// ── EVENTS DATA ───────────────────────────────────────────────────────────────
+const EVENTS = {
+  marriage:{label:'Marriage Conference',description:'Focus on covenant love, God as the foundation of marriage, unity, and surrender. Songs should reflect deep commitment, intimacy with God, and the love He has for His people — mirroring the love between spouses.',keywords:['amor','love','covenant','pacto','rindo','surrender','presencia','presence','eterno','eternal','deseo','beloved','sunamita','yeshua','reckless'],songs:['Deseo Eterno','La Sunamita / Beloved','Reckless Love / Amor Sin Condición','Covenant Keeping God','A Ti Me Rindo / I Surrender','Tu Presencia Es El Cielo / Your Presence is Heaven','En Tí Confía Mi Corazón','Tuyo Es El Reino / Yours Is The Kingdom','Yeshua','Quebranta Mi Corazón','How Great Is Our God'],tip:"Open with praise celebrating God's faithfulness, move into worship focused on His love, and close the altar with surrender and covenant songs."},
+  friends:{label:"Friend's Day",description:'An outreach-focused Sunday with guests who may be new to worship. Songs should be accessible, celebratory, and welcoming — with a clear gospel message.',keywords:['good','bueno','great','grande','praise','alabar','friend','amigo','joy','gozo','freedom','libre'],songs:['Eres Mi Amigo Fiel / Friend of God','How Great Is Our God','Goodness Of God / Bondad De Dios','Vamos A Cantar','You Are Good / Eres Fiel','Nada Es Imposible / Nothing Is Impossible','Freedom Medley / Libre','Hay Libertad / There Is Joy','Beautiful Name / Majestuoso','No Longer Slaves / Ya No Soy Esclavo','Mira Lo Que Hizo Dios / Look What The Lord Has Done'],tip:"Keep it energetic and accessible. Use bilingual songs so both longtime members and new guests feel included. End with a clear altar call."},
+  kids:{label:"Kid's Day",description:'Fun, high-energy, and joyful. Songs with movement, repetition, and simple memorable lyrics work best.',keywords:['gozo','joy','hijo','child','freedom','libre','praise','alabar','victoria','victory','viva'],songs:['Yo Tengo Gozo','Viva La Fe','Alabaré','Hay Poder / There Is Power','Freedom Medley / Libre','Vamos A Cantar','Eres Mi Amigo Fiel / Friend of God','Hosanna Al Altísimo','Yo Celebraré','Victoria La Victoria Mía Es / Victory The Victory Is Mine','Mira Lo Que Hizo Dios / Look What The Lord Has Done'],tip:"Favor call-and-response songs and ones with movement. Keep transitions fast. End with something that invites children to personally respond to God."},
+  mothers:{label:"Mother's Day",description:"Honor mothers and celebrate God's love, faithfulness, and care — paralleling the nurturing love of a mother.",keywords:['bueno','good','fiel','faithful','amor','love','gracias','thank','rindo','surrender','brazos','arms','hijo','child'],songs:['Goodness Of God / Bondad De Dios','Gracias / Thank You Jesus','Tu Fidelidad / Your Faithfulness','No Longer Slaves / Ya No Soy Esclavo','Grande Es El Amor de Dios','Dios Ha Sido Bueno / God Has Been Good','A Ti Me Rindo / I Surrender','En Tí Confía Mi Corazón','How Great Is Our God','Reckless Love / Amor Sin Condición','Cristo Yo Te Amo'],tip:"Start celebratory and warm, move into deep gratitude and worship, and close with a tender altar moment."},
+  fathers:{label:"Father's Day",description:"Celebrate God as the perfect Father. Songs about His protection, strength, faithfulness, and love as a father.",keywords:['padre','father','fiel','faithful','fortaleza','strength','hijo','child','bueno','good','amor','love'],songs:['No Longer Slaves / Ya No Soy Esclavo','Goodness Of God / Bondad De Dios','Fortaleza Divina','Tu Fidelidad / Your Faithfulness','Dios Ha Sido Bueno / God Has Been Good','Always On Time / Siempre A Tiempo','Same God / El Mismo Dios','Grande Es El Amor de Dios','Ven Señor / Come Like You Promised','En Tí Confía Mi Corazón','What A God'],tip:"Always On Time and Same God are especially powerful for honoring both God as Father and earthly dads."},
+  youth:{label:'Youth Day',description:"High energy, bold, and Spirit-filled. Declare freedom, break chains, and invite the fire of the Holy Spirit.",keywords:['fire','fuego','freedom','libre','ghost','spirit','espiritu','power','poder','break','rompe','holy','santo','revival','avivamiento'],songs:['Holy Ghost',"Can't Stop Praising His Name",'Freedom Medley / Libre','Nada Es Imposible / Nothing Is Impossible','But God / Más Dios','Mighty Name of Jesus','I Speak Jesus','Haz Llover / Let It Rain','Los Muros Caerán / The Walls Are Falling','Pablo Y Silas','Hay Sanidad Aquí / Healing Is Here','Victoria La Victoria Mía Es / Victory The Victory Is Mine'],tip:"Open with the Holy Ghost → Can't Stop medley. Pablo y Silas is perfect for a youth altar."},
+  baptism:{label:'Baptism Day',description:'Celebrate new life in Christ, dying to the old self, and rising in the new. Songs about being washed, freedom, and new identity as children of God.',keywords:['washed','lavado','libre','freedom','nuevo','new','bautiz','bapti','hijo','child','seguir','follow','clean','limpio'],songs:['Washed / Lavado','No Longer Slaves / Ya No Soy Esclavo','Soy Bautizado','He Decidido Seguir A Cristo / I Have Decided','Freedom Medley / Libre','Hay Libertad / There Is Joy','Beautiful Name / Majestuoso','Holy Ghost','Santo Es El Que Vive / Holy Is The One Who Lives','Ven Espíritu Ven / Come Holy Spirit','Mira Lo Que Hizo Dios / Look What The Lord Has Done'],tip:"Washed / Lavado is your signature baptism song. He Decidido and Soy Bautizado are classic for this moment."},
+  florAzul:{label:'Flor Azul — Missionary Service',description:"A missionary service supporting global outreach. Songs about God's glory filling the earth, nations worshipping, and being sent.",keywords:['tierra','earth','naciones','nations','gloria','glory','llena','fill','nombre','name','mundo','world'],songs:['Sera Llena La Tierra','Cantaré Al Señor Por Siempre','Nombre No Hay / No Other Name','How Great Is Our God','Mighty Name of Jesus','Hosanna Al Rey','Los Muros Caerán / The Walls Are Falling','Glorious','What A God','Te Exaltamos / When I Speak Your Name','Que Se Llene Tu Casa / Fill Your House'],tip:"Sera Llena La Tierra is a natural opener for any missionary service — its lyrics speak directly to the harvest."},
+  preciosa:{label:'Preciosa Semilla — Missionary Service',description:'A missionary service focused on sowing seeds of faith. Songs about planting, harvest, and trusting in what God is doing even when unseen.',keywords:['tierra','earth','semilla','seed','cosecha','harvest','gloria','glory','fiel','faithful','fe','faith','espera','wait','obrando','working'],songs:['Sera Llena La Tierra','Way Maker / Milagroso','Always On Time / Siempre A Tiempo','Tu Fidelidad / Your Faithfulness','Covenant Keeping God','Same God / El Mismo Dios','Goodness Of God / Bondad De Dios','Hay Una Esperanza','Fortaleza Divina','En Tí Confía Mi Corazón','Glorious'],tip:"Way Maker is powerful here — 'Even when I don't see it You're working' speaks directly to the faith it takes to keep sowing seeds."},
+  alcanzando:{label:'Alcanzando América — Missionary Service',description:'A bilingual outreach-focused service with a heart for reaching the Americas. Bold, evangelistic worship that declares God\'s power to save.',keywords:['poder','power','salva','save','libre','free','nombre','name','gloria','glory','naciones','nations','testimonio','testimony'],songs:["Can't Stop Praising His Name",'Nombre No Hay / No Other Name','Beautiful Name / Majestuoso','Mighty Name of Jesus','I Speak Jesus','But God / Más Dios','Nada Es Imposible / Nothing Is Impossible','Victoria La Victoria Mía Es / Victory The Victory Is Mine','Mira Lo Que Hizo Dios / Look What The Lord Has Done','No Longer Slaves / Ya No Soy Esclavo','Glorious'],tip:"But God / Más Dios and Mira Lo Que Hizo Dios are great testimony-focused songs perfect for an evangelistic setting."},
+  offering:{label:'Offering Songs',description:'Songs specifically suited for the offering moment — themes of generosity, gratitude, giving back to God, and His provision.',keywords:['lavado','washed','glorioso','glorious','llena','fill','libertad','liberty','gracias','thank','bueno','good','ofrenda','offering'],songs:['Washed / Lavado','Glorious','Que Se Llene Tu Casa / Fill Your House','Hay Libertad / There Is Joy','Esta Noche Nos Vamos A Gozar','Eres Todopoderoso','Goodness Of God / Bondad De Dios','Gracias / Thank You Jesus','Dios Ha Sido Bueno / God Has Been Good','Grande Es El Amor de Dios','Freedom Medley / Libre'],tip:"Glorious, Washed, and Hay Libertad are your most-used offering songs. Keep energy joyful — the offering should feel like worship, not an obligation."},
+  thanksgiving:{label:'Thanksgiving Day',description:"Gratitude and recognition of God's faithfulness throughout the year. Songs of thankfulness, declaring His goodness, and remembering all He has done.",keywords:['gracias','thank','bueno','good','fiel','faithful','amor','love','grande','great','bondad','goodness','ha sido'],songs:['Gracias / Thank You Jesus','Goodness Of God / Bondad De Dios','Dios Ha Sido Bueno / God Has Been Good','Tu Fidelidad / Your Faithfulness','Same God / El Mismo Dios','Grande Es El Amor de Dios','How Great Is Our God','Always On Time / Siempre A Tiempo','What A God','Mira Lo Que Hizo Dios / Look What The Lord Has Done','Bendito Sea El Señor / Holy Is The Lord'],tip:"Dios Ha Sido Bueno, Gracias, and Mira Lo Que Hizo Dios form a powerful thanksgiving trio. Consider sharing testimonies between songs."},
+  newYear:{label:'New Year Celebration',description:'Celebrate a new season with God. Songs of hope, renewal, fresh fire, and declaring what God will do in the coming year.',keywords:['nuevo','new','fuego','fire','esperanza','hope','renovar','renew','avivamiento','revival','llover','rain','espiritu','spirit'],songs:['Holy Ghost','Haz Llover / Let It Rain','Nada Es Imposible / Nothing Is Impossible','Way Maker / Milagroso','Cielos Abiertos / Open Heavens','El Espíritu De Dios / Spirit of the Lord','Ven Espíritu Ven / Come Holy Spirit','Hay Una Esperanza','Always On Time / Siempre A Tiempo','Ya Se Oye El Shofar / Come Oh Lord','Espíritu Santo Ven / Holy Spirit Come'],tip:'The Holy Ghost bridge — "Renew me with new tongues, Revive me with new wine, Baptize me with fresh fire" — is the perfect New Year declaration.'},
+  pastor:{label:'Día del Pastor',description:"Honor your pastor and the calling God has placed on his life. Songs of faithfulness, God's anointing, humility, and service.",keywords:['fiel','faithful','digno','worthy','gloria','glory','aceite','oil','espiritu','spirit','honor'],songs:['Worthy / Digno','Worthy of It All / Digno Eres Tú','Digno Eres / Worthy Are You','Tu Fidelidad / Your Faithfulness','Holy Ghost','Trono De Alabanza / I Want To Fill Your Throne','Dios Ha Sido Bueno / God Has Been Good','Gracias / Thank You Jesus','Goodness Of God / Bondad De Dios','Santo Es El Que Vive / Holy Is The One Who Lives','Llévame Al Lugar Santísimo'],tip:"Open with high praise celebrating God's faithfulness through your pastor's ministry. The Worthy medley is a natural fit for this day."},
+  esperanza:{label:'Abrazando Esperanza',description:'A service of comfort, healing, and hope for those going through grief, hardship, or loss. Songs should be tender, reassuring, and full of God\'s presence.',keywords:['esperanza','hope','sana','heal','restaura','restore','paz','peace','amor','love','consuelo','comfort','cerca','near'],songs:['Hay Sanidad Aquí / Healing Is Here','Always On Time / Siempre A Tiempo','Same God / El Mismo Dios','Hay Una Esperanza','Devuélveme El Gozo','En Tí Confía Mi Corazón','Dios Manda Lluvia','Grande Es El Amor de Dios','Reckless Love / Amor Sin Condición','No Longer Slaves / Ya No Soy Esclavo','Tu Presencia Es El Cielo / Your Presence is Heaven'],tip:"Lead gently. Hay Sanidad Aquí and Devuélveme El Gozo speak directly to healing and restoration. Allow space for the Spirit to move."},
+  aceite:{label:'Aceite de Las Viudas',description:"A fund-raising service honoring widows of pastors. Songs of God's provision, comfort for the brokenhearted, and His faithfulness to care for the vulnerable.",keywords:['fiel','faithful','sana','heal','amor','love','consuelo','comfort','cuida','care','restaura','restore','provisión','provision'],songs:['Dios Ha Sido Bueno / God Has Been Good','Tu Fidelidad / Your Faithfulness','Always On Time / Siempre A Tiempo','Same God / El Mismo Dios','Reckless Love / Amor Sin Condición','Hay Sanidad Aquí / Healing Is Here','Grande Es El Amor de Dios','Gracias / Thank You Jesus','En Tí Confía Mi Corazón','Hay Una Esperanza','Goodness Of God / Bondad De Dios'],tip:"This service calls for warmth and tenderness. Allow generous space for testimony and prayer before the offering."},
+};
+
+function renderEventSuggestions(){
+  const key = document.getElementById('event-select').value;
+  const wrap = document.getElementById('event-suggestions-wrap');
+  const desc = document.getElementById('event-description');
+  const aiResult = document.getElementById('event-ai-result');
+  aiResult.innerHTML = '';
+  if(!key){ wrap.style.display='none'; desc.style.display='none'; return; }
+  const event = EVENTS[key];
+  desc.style.display = 'block';
+  desc.innerHTML = `<strong>${event.label}</strong><br><br>${event.description}<br><br><em>💡 ${event.tip}</em>`;
+  wrap.style.display = 'block';
+
+  const suggested = event.songs
+    .map(title => library.find(s => s.title.toLowerCase() === title.toLowerCase()))
+    .filter(Boolean);
+
+  const keywordMatches = library.filter(s => {
+    const text = (s.title + ' ' + (s.lyrics||'')).toLowerCase();
+    return event.keywords.some(k => text.includes(k.toLowerCase())) &&
+           !suggested.find(x => x.title === s.title);
+  }).slice(0, 4);
+
+  const all = [...suggested, ...keywordMatches];
+  const el = document.getElementById('event-song-list');
+  if(!all.length){ el.innerHTML='<div class="empty">No matching songs found — try adding more songs to your library.</div>'; return; }
+
+  el.innerHTML = all.map(s => {
+    const isCurated = !!suggested.find(x => x.title === s.title);
+    const idx = library.indexOf(s);
+    return `<div class="song-row">
+      <div style="flex:1;min-width:0">
+        <div class="song-title">${s.title}${!isCurated?' <span style="font-size:10px;color:var(--text3);font-family:system-ui,sans-serif">(keyword match)</span>':''}</div>
+        <div style="margin-top:3px">${getBadge(s.section)}</div>
+      </div>
+      <button style="font-size:12px;padding:4px 10px" onclick="addToSetlist(library[${idx}]); switchMain('setlist')">+ Add</button>
+    </div>`;
+  }).join('');
+}
+
+function getEventSetlist(){
+  const key = document.getElementById('event-select').value;
+  if(!key){ setStatus('Select an event first.','error'); return; }
+  const event = EVENTS[key];
+  const el = document.getElementById('event-ai-result');
+  const songTitles = library.map(s=>s.title).join(', ');
+  const prompt = 'Build a worship setlist for our ' + event.label + ' service at Sandy Apostolic Church. Structure it with: Praise/Avivamiento, Worship/Adoración, Offering/Ofrenda, Altar Call. Pick 6-9 songs and briefly explain why each fits. Format: summary on top grouped by section, then full setlist in order. Only use songs from this library:\n\n' + songTitles;
+  el.innerHTML = `
+    <div style="background:#e6f1fb;border-radius:8px;padding:12px 14px;font-family:system-ui,sans-serif;">
+      <div style="font-size:12px;color:#0c447c;margin-bottom:8px;font-weight:500">Copy this prompt and paste it into your Claude chat for a full setlist:</div>
+      <textarea readonly onclick="this.select()" style="width:100%;font-size:12px;font-family:system-ui,sans-serif;border:0.5px solid #b3d4f5;border-radius:6px;padding:8px;background:#fff;color:#1a1a1a;line-height:1.5;resize:none;min-height:100px">${prompt}</textarea>
+      <button onclick="
+        const ta=this.previousElementSibling;
+        ta.select();
+        navigator.clipboard.writeText(ta.value).then(()=>{this.textContent='✓ Copied!';setTimeout(()=>this.textContent='Copy',2000)}).catch(()=>{document.execCommand('copy');this.textContent='✓ Copied!';setTimeout(()=>this.textContent='Copy',2000)})
+      " style="margin-top:8px;font-size:12px;padding:5px 14px">Copy</button>
+    </div>`;
+}
+
+
+function switchMain(tab){
+  ['setlist','library','medley','events','add'].forEach((t,i)=>{
+    document.getElementById('pane-'+t).style.display = t===tab?'block':'none';
+    document.querySelectorAll('#main-tabs .tab')[i].classList.toggle('active', t===tab);
+  });
+  if(tab==='library'){renderLibrary(); renderStats();}
+  if(tab==='medley'){
+    renderMedley();
+    const dl = document.getElementById('medley-datalist');
+    if(dl) dl.innerHTML = library.map(s=>`<option value="${s.title}">`).join('');
+  }
+}
+
+function getBadge(s){return `<span class="badge ${BADGE_CLASS[s]||'special'}">${s}</span>`;}
+
+// ── SETLIST ──────────────────────────────────────────────────────────────────
+function renderSetlist(){
+  const el=document.getElementById('setlist-rows');
+  if(!setlist.length){el.innerHTML='<div class="empty">No songs yet — pick from library or search Drive</div>';return;}
+  const sections=['Praise/Avivamiento','Worship/Adoración','Offering/Ofrenda','Altar Call','Special','Extra'];
+  el.innerHTML=setlist.map((s,i)=>`
+    <div class="song-row" draggable="true" data-i="${i}" ondragstart="ds(event,${i})" ondragover="dv(event)" ondrop="dp(event,${i})">
+      <span class="drag-handle">⠿</span>
+      <select onchange="changeSection(${i},this.value)" title="Change section" style="font-size:11px;padding:2px 5px;border-radius:6px;border:0.5px solid var(--border2);font-family:system-ui,sans-serif;background:${getSectionBg(s.section)};color:${getSectionColor(s.section)};cursor:pointer;max-width:130px">
+        ${sections.map(sec=>`<option value="${sec}" ${sec===s.section?'selected':''}>${sec}</option>`).join('')}
+      </select>
+      <span class="song-title">${s.title}</span>
+      <button class="icon-btn danger" onclick="removeFromSetlist(${i})" title="Remove">✕</button>
+    </div>`).join('');
+}
+
+function getSectionBg(s){
+  const m={'Praise/Avivamiento':'#eeedfe','Worship/Adoración':'#e1f5ee','Offering/Ofrenda':'#faeeda','Altar Call':'#faece7','Special':'#f0efe9','Extra':'#f0efe9'};
+  return m[s]||'#f0efe9';
+}
+function getSectionColor(s){
+  const m={'Praise/Avivamiento':'#3c3489','Worship/Adoración':'#085041','Offering/Ofrenda':'#633806','Altar Call':'#712b13','Special':'#6b6b6b','Extra':'#6b6b6b'};
+  return m[s]||'#6b6b6b';
+}
+function changeSection(i, newSection){
+  setlist[i].section = newSection;
+  renderSetlist();
+  saveSetlistState();
+}
+let dragSrc=null;
+function ds(e,i){dragSrc=i;}
+function dv(e){e.preventDefault();}
+function dp(e,i){e.preventDefault();if(dragSrc===null||dragSrc===i)return;const m=setlist.splice(dragSrc,1)[0];setlist.splice(i,0,m);dragSrc=null;renderSetlist();saveSetlistState();}
+function removeFromSetlist(i){setlist.splice(i,1);renderSetlist();saveSetlistState();}
+function clearSetlist(){
+  if(setlist.length && !confirm('Clear the whole setlist? This is shared across every device.')) return;
+  setlist=[];renderSetlist();saveSetlistState();
+}
+function addToSetlist(song, section){
+  setlist.push({...song, section: section||song.section});
+  renderSetlist();
+  saveSetlistState();
+  setStatus(`"${song.title}" added to setlist.`, 'success');
+}
+
+// ── LIBRARY ──────────────────────────────────────────────────────────────────
+function renderStats(){
+  const secs={};library.forEach(s=>{secs[s.section]=(secs[s.section]||0)+1;});
+  document.getElementById('lib-stats').innerHTML=`
+    <div class="stat"><div class="stat-n">${library.length}</div><div class="stat-l">Songs saved</div></div>
+    <div class="stat"><div class="stat-n">${library.filter(s=>s.language&&s.language.includes('Bilingual')).length}</div><div class="stat-l">Bilingual</div></div>
+    <div class="stat"><div class="stat-n">${Object.keys(secs).length}</div><div class="stat-l">Sections</div></div>
+    <div class="stat"><div class="stat-n">${secs['Altar Call']||0}</div><div class="stat-l">Altar Call songs</div></div>`;
+}
+
+function renderLibrary(){
+  const q=(document.getElementById('lib-search').value||'').toLowerCase();
+  const sec=document.getElementById('lib-filter').value;
+  const filtered=library.filter(s=>
+    (!q || s.title.toLowerCase().includes(q) || (s.lyrics||'').toLowerCase().includes(q) || (s.artist||'').toLowerCase().includes(q)) &&
+    (!sec || s.section===sec)
+  );
+  const el=document.getElementById('lib-rows');
+  if(!filtered.length){el.innerHTML=`<div class="empty">${library.length===0?'Library empty.':'No matches.'}</div>`;return;}
+  el.innerHTML=filtered.map(s=>{
+    const i=library.indexOf(s);
+    return `<div class="song-row">
+      <div style="flex:1;min-width:0">
+        <div class="song-title">${s.title}</div>
+        <div style="margin-top:3px;display:flex;gap:4px;flex-wrap:wrap">${getBadge(s.section)}${s.artist?`<span class="badge special">${s.artist}</span>`:''}</div>
+      </div>
+      <button class="icon-btn" onclick="viewSong(${i})" title="View lyrics"></button>
+      <button class="icon-btn" onclick="addToSetlist(library[${i}]); switchMain('setlist')" title="Add to setlist">✓</button>
+      <button class="icon-btn danger" onclick="deleteSong(${i})" title="Delete">Del</button>
+    </div>`;
+  }).join('');
+}
+
+async function deleteSong(i){
+  const song=library[i]; const t=song.title;
+  if(!confirm(`Remove "${t}" from your library?\n\nThis cannot be undone.`)) return;
+  if(song.id){
+    const { error } = await sb.from('worship_songs').delete().eq('id', song.id);
+    if(error){ setStatus('Could not delete: ' + error.message, 'error'); return; }
+  }
+  library.splice(i,1);
+  renderLibrary(); renderStats();
+  setStatus(`"${t}" removed.`, 'info');
+}
+
+// ── VIEW MODAL ───────────────────────────────────────────────────────────────
+function viewSong(i){
+  viewIdx=i; const s=library[i];
+  document.getElementById('view-title-el').textContent=s.title;
+  document.getElementById('view-meta').innerHTML=getBadge(s.section)+(s.artist?` <span class="badge special">${s.artist}</span>`:'')+( s.language?` <span class="badge special">${s.language}</span>`:'');
+  document.getElementById('view-lyrics-el').textContent=s.lyrics||'(no lyrics)';
+  document.getElementById('view-overlay').classList.add('open');
+}
+function closeView(){document.getElementById('view-overlay').classList.remove('open');}
+function addToSetlistFromView(){addToSetlist(library[viewIdx]);closeView();switchMain('setlist');}
+
+// ── EDIT MODAL ───────────────────────────────────────────────────────────────
+function openEdit(i){
+  closeView(); editIdx=i; const s=library[i];
+  document.getElementById('edit-title').value=s.title;
+  document.getElementById('edit-section').value=s.section;
+  document.getElementById('edit-artist').value=s.artist||'';
+  document.getElementById('edit-lang').value=s.language||'Bilingual (EN/ES)';
+  document.getElementById('edit-lyrics').value=s.lyrics||'';
+  document.getElementById('edit-overlay').classList.add('open');
+}
+function closeEdit(){document.getElementById('edit-overlay').classList.remove('open');}
+async function saveEdit(){
+  const s=library[editIdx];
+  s.title=document.getElementById('edit-title').value.trim()||s.title;
+  s.section=document.getElementById('edit-section').value;
+  s.artist=document.getElementById('edit-artist').value.trim();
+  s.language=document.getElementById('edit-lang').value;
+  s.lyrics=document.getElementById('edit-lyrics').value;
+  if(s.id){
+    const { error } = await sb.from('worship_songs').update({
+      title:s.title, section:s.section, artist:s.artist, language:s.language, lyrics:s.lyrics
+    }).eq('id', s.id);
+    if(error){ setStatus('Could not save: ' + error.message, 'error'); return; }
+  }
+  renderLibrary(); renderStats(); closeEdit();
+  setStatus(`"${s.title}" updated.`, 'success');
+}
+
+// ── GOOGLE DRIVE PICKER (real, free, uses drive.file scope) ──────────────────
+const GOOGLE_CLIENT_ID = '51057946451-gf0lt8oo02enbb7cfh9lod8rbdj52bdk.apps.googleusercontent.com';
+const GOOGLE_API_KEY = 'AIzaSyDqvIh48AOuwLzq2lx5KQziEjGuG2vU5sc';
+const GOOGLE_DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
+
+let gapiPickerLoaded = false;
+let googleAccessToken = null;
+let googleTokenClient = null;
+let pendingPickerMode = null;
+
+function openDriveModal(){
+  document.getElementById('modal-drive-results').innerHTML='Pick a doc from your Drive to import its lyrics.';
+  document.getElementById('drive-overlay').classList.add('open');
+}
+function closeDriveModal(){document.getElementById('drive-overlay').classList.remove('open');}
+
+function ensureGapiPicker(cb){
+  if(gapiPickerLoaded){ cb(); return; }
+  if(!window.gapi){ setStatus('Google API failed to load.', 'error'); return; }
+  gapi.load('picker', () => { gapiPickerLoaded = true; cb(); });
+}
+
+function ensureGoogleToken(cb){
+  if(googleAccessToken){ cb(); return; }
+  if(!window.google || !google.accounts || !google.accounts.oauth2){
+    setStatus('Google Sign-In failed to load.', 'error'); return;
+  }
+  if(!googleTokenClient){
+    googleTokenClient = google.accounts.oauth2.initTokenClient({
+      client_id: GOOGLE_CLIENT_ID,
+      scope: GOOGLE_DRIVE_SCOPE,
+      callback: (resp) => {
+        if(resp && resp.access_token){ googleAccessToken = resp.access_token; cb(); }
+        else setStatus('Google sign-in was cancelled.', 'info');
+      }
+    });
+  }
+  googleTokenClient.requestAccessToken({ prompt: '' });
+}
+
+function openGoogleDrivePicker(mode){
+  pendingPickerMode = mode;
+  ensureGapiPicker(() => { ensureGoogleToken(() => { showGooglePicker(); }); });
+}
+
+function showGooglePicker(){
+  const view = new google.picker.DocsView(google.picker.ViewId.DOCS)
+    .setIncludeFolders(false)
+    .setSelectFolderEnabled(false);
+  const picker = new google.picker.PickerBuilder()
+    .addView(view)
+    .setOAuthToken(googleAccessToken)
+    .setDeveloperKey(GOOGLE_API_KEY)
+    .setCallback(googlePickerCallback)
+    .build();
+  picker.setVisible(true);
+}
+
+async function googlePickerCallback(data){
+  if(!data || data.action !== google.picker.Action.PICKED) return;
+  const file = data.docs[0];
+  const mode = pendingPickerMode;
+  const targetEl = mode==='setlist' ? document.getElementById('modal-drive-results') : document.getElementById('add-drive-results');
+  if(targetEl) targetEl.innerHTML = '<span class="spinner"></span> Loading lyrics…';
+  try{
+    const isGoogleDoc = file.mimeType === 'application/vnd.google-apps.document';
+    const url = isGoogleDoc
+      ? `https://www.googleapis.com/drive/v3/files/${file.id}/export?mimeType=text/plain`
+      : `https://www.googleapis.com/drive/v3/files/${file.id}?alt=media`;
+    const res = await fetch(url, { headers: { Authorization: `Bearer ${googleAccessToken}` } });
+    if(!res.ok) throw new Error('drive fetch failed: ' + res.status);
+    const lyrics = await res.text();
+    const section = mode==='setlist' ? document.getElementById('modal-section').value : 'Worship/Adoración';
+    const songBase = {title:file.name, section, artist:'', language:'Bilingual (EN/ES)', lyrics};
+    const { data:savedRow, error:saveErr } = await sb.from('worship_songs').insert(songBase).select().single();
+    if(saveErr){ if(targetEl) targetEl.innerHTML='<span style="color:#791f1f">Could not save to library.</span>'; return; }
+    const song = {...songBase, id:savedRow.id, addedDate:savedRow.added_date};
+    library.push(song); renderLibrary(); renderStats();
+    if(mode==='setlist'){ addToSetlist(song, section); closeDriveModal(); switchMain('setlist'); }
+    else if(targetEl){ targetEl.innerHTML = `<span style="color:#27500a">✓ "${file.name}" saved to library.</span>`; }
+    setStatus(`"${file.name}" imported.`, 'success');
+  }catch(e){
+    if(targetEl) targetEl.innerHTML = '<span style="color:#791f1f">Could not load that file from Drive.</span>';
+    setStatus('Drive import failed.', 'error');
+  }
+}
+
+// ── ADD MANUALLY ─────────────────────────────────────────────────────────────
+async function saveNewSong(){
+  const title=document.getElementById('new-title').value.trim();
+  const lyrics=document.getElementById('new-lyrics').value.trim();
+  if(!title){setStatus('Enter a song title.','error');return;}
+  if(!lyrics){setStatus('Add some lyrics.','error');return;}
+  const song={title, section:document.getElementById('new-section').value, artist:document.getElementById('new-artist').value.trim(), language:document.getElementById('new-lang').value, lyrics};
+  const { data, error } = await sb.from('worship_songs').insert(song).select().single();
+  if(error){ setStatus('Could not save: ' + error.message, 'error'); return; }
+  library.push({...song, id:data.id, addedDate:data.added_date});
+  document.getElementById('new-title').value=''; document.getElementById('new-lyrics').value=''; document.getElementById('new-artist').value='';
+  renderLibrary(); renderStats(); setStatus(`"${title}" saved to library.`,'success');
+}
+
+// ── PREVIEW ──────────────────────────────────────────────────────────────────
+function previewSetlist(){
+  if(!setlist.length){setStatus('Add songs first.','error');return;}
+  const date=document.getElementById('svc-date').value;
+  const title=document.getElementById('svc-title').value||'Worship Service';
+  const dateStr=date?new Date(date+'T12:00:00').toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'}):'';
+  let html=`<p style="font-weight:500;font-size:15px;margin-bottom:2px;font-family:system-ui,sans-serif">${title}</p>`;
+  if(dateStr) html+=`<p style="font-size:12px;color:var(--text2);margin-bottom:14px;font-family:system-ui,sans-serif">${dateStr}</p>`;
+  setlist.forEach(s=>{html+=`<div style="margin-bottom:12px">${getBadge(s.section)} <strong style="font-size:13px;font-family:system-ui,sans-serif">${s.title}</strong><div class="lyrics-prev">${(s.lyrics||'').substring(0,200)}${(s.lyrics||'').length>200?'…':''}</div></div>`;});
+  document.getElementById('preview-content').innerHTML=html;
+  document.getElementById('preview-overlay').classList.add('open');
+}
+
+// ── CREATE GOOGLE DOC ────────────────────────────────────────────────────────
+function copySetlist(){
+  if(!setlist.length){setStatus('Add songs to your setlist first.','error');return;}
+  document.getElementById('preview-overlay').classList.remove('open');
+  const date=document.getElementById('svc-date').value;
+  const svcTitle=document.getElementById('svc-title').value||'Worship Service';
+  const dateStr=date?new Date(date+'T12:00:00').toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'}):'';
+
+  // ── SUMMARY BLOCK (top of doc, grouped by section) ──
+  const sectionOrder=['Praise/Avivamiento','Worship/Adoración','Offering/Ofrenda','Altar Call','Special','Extra'];
+  const grouped={};
+  setlist.forEach(s=>{
+    const sec=s.section||'Special';
+    if(!grouped[sec]) grouped[sec]=[];
+    grouped[sec].push(s.title);
+  });
+
+  let text=svcTitle+'\n';
+  if(dateStr) text+=dateStr+'\n';
+  text+='\n';
+
+  // Section summary
+  sectionOrder.forEach(sec=>{
+    if(!grouped[sec]) return;
+    text+=sec+':\n';
+    grouped[sec].forEach(title=>{ text+='  • '+title+'\n'; });
+    text+='\n';
+  });
+  // Any custom sections not in the standard order
+  Object.keys(grouped).forEach(sec=>{
+    if(!sectionOrder.includes(sec)){
+      text+=sec+':\n';
+      grouped[sec].forEach(title=>{ text+='  • '+title+'\n'; });
+      text+='\n';
+    }
+  });
+
+  text+='\f'; // page break after summary
+
+  // ── FULL LYRICS BLOCK (grouped by section, page break between each) ──
+  const sectionOrderFull=['Praise/Avivamiento','Worship/Adoración','Offering/Ofrenda','Altar Call','Special','Extra'];
+  const allSections=[...sectionOrderFull,...Object.keys(grouped).filter(s=>!sectionOrderFull.includes(s))];
+
+  allSections.forEach(sec=>{
+    const songs=setlist.filter(s=>s.section===sec);
+    if(!songs.length) return;
+    text+=sec.toUpperCase()+'\n'+'='.repeat(40)+'\n\n';
+    songs.forEach(s=>{
+      text+=s.title+'\n\n';
+      text+=(s.lyrics||'')+'\n\n';
+      text+='-'.repeat(40)+'\n\n';
+    });
+    text+='\f'; // page break between sections
+  });
+
+  navigator.clipboard.writeText(text).then(()=>{
+    setStatus('\u2713 Copied! Open a Google Doc and paste (Cmd+V or Ctrl+V).','success');
+  }).catch(()=>{
+    const ta=document.createElement('textarea');
+    ta.value=text;
+    ta.style.position='fixed';
+    ta.style.opacity='0';
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    try{
+      document.execCommand('copy');
+      setStatus('\u2713 Copied! Open a Google Doc and paste (Cmd+V or Ctrl+V).','success');
+    } catch {
+      setStatus('Could not copy automatically. Use the Preview button to see your setlist.','error');
+    }
+    document.body.removeChild(ta);
+  });
+}
+
+// ── BACKUP ───────────────────────────────────────────────────────────────────
+function exportJSON(){
+  const b=new Blob([JSON.stringify(library,null,2)],{type:'application/json'});
+  const u=URL.createObjectURL(b); const a=document.createElement('a');
+  a.href=u; a.download='worship-library.json'; a.click(); URL.revokeObjectURL(u);
+}
+
+init();
+</script>
+</body>
+</html>
