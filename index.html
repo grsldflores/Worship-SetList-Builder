@@ -735,8 +735,8 @@ function renderLibrary(){
         <div class="song-title">${s.title}</div>
         <div style="margin-top:3px;display:flex;gap:4px;flex-wrap:wrap">${getBadge(s.section)}${s.artist?`<span class="badge special">${s.artist}</span>`:''}</div>
       </div>
-      <button class="icon-btn" onclick="viewSong(${i})" title="View lyrics">👁</button>
-      <button class="icon-btn confirm" onclick="addToSetlist(library[${i}]); switchMain('setlist')" title="Add to setlist">✓</button>
+      <button class="icon-btn" onclick="viewSong(${i})" title="View lyrics">📄</button>
+      <button class="icon-btn confirm" onclick="addToSetlist(library[${i}])" title="Add to setlist">✓</button>
       <button class="icon-btn danger" onclick="deleteSong(${i})" title="Delete">Del</button>
     </div>`;
   }).join('');
