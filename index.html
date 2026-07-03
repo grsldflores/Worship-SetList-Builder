@@ -315,23 +315,21 @@
 <div class="overlay" id="gdoc-overlay">
   <div class="modal">
     <h3>Export as Google Doc</h3>
-    <p style="font-size:13px;color:var(--text2);font-family:system-ui,sans-serif;margin-bottom:1rem;line-height:1.6">Creates a real Google Doc of your setlist with the font, size, and color you pick below.</p>
-    <div class="two-col">
-      <div class="field"><label>Font</label>
-        <select id="gdoc-font">
-          <option value="Arial">Arial</option>
-          <option value="Georgia">Georgia</option>
-          <option value="Times New Roman">Times New Roman</option>
-          <option value="Verdana">Verdana</option>
-          <option value="Calibri">Calibri</option>
-          <option value="Courier New">Courier New</option>
-          <option value="Roboto">Roboto</option>
-          <option value="Montserrat">Montserrat</option>
-          <option value="Lato">Lato</option>
-          <option value="Comic Sans MS">Comic Sans MS</option>
-        </select>
-      </div>
-      <div class="field"><label>Size (pt)</label><input type="number" id="gdoc-size" value="12" min="6" max="36" /></div>
+    <p style="font-size:13px;color:var(--text2);font-family:system-ui,sans-serif;margin-bottom:1rem;line-height:1.6">Creates a real Google Doc — section &amp; song titles at 25pt, lyrics and CORO/VERSE-style labels at 12pt, in the font and color you pick below.</p>
+    <div class="field"><label>Font</label>
+      <select id="gdoc-font">
+        <option value="Arial">Arial</option>
+        <option value="Georgia">Georgia</option>
+        <option value="Times New Roman">Times New Roman</option>
+        <option value="Verdana">Verdana</option>
+        <option value="Calibri">Calibri</option>
+        <option value="Courier New">Courier New</option>
+        <option value="Roboto">Roboto</option>
+        <option value="Montserrat">Montserrat</option>
+        <option value="Lato">Lato</option>
+        <option value="Quicksand Medium">Quicksand Medium</option>
+        <option value="Comic Sans MS">Comic Sans MS</option>
+      </select>
     </div>
     <div class="field"><label>Color</label><input type="color" id="gdoc-color" value="#1a1a1a" style="height:38px;padding:2px;cursor:pointer" /></div>
     <div class="btn-row">
@@ -897,8 +895,10 @@ function hexToRgb01(hex){
 
 function exportSetlistToGoogleDoc(){
   ensureGoogleToken(async () => {
-    const fontFamily = document.getElementById('gdoc-font').value;
-    const fontSize = parseInt(document.getElementById('gdoc-size').value, 10) || 12;
+    let fontFamily = document.getElementById('gdoc-font').value;
+    let fontWeight = 400;
+    if(fontFamily === 'Quicksand Medium'){ fontFamily = 'Quicksand'; fontWeight = 500; }
+    const BODY_SIZE = 12, HEAD_SIZE = 25, TITLE_SIZE = 20;
     const rgb = hexToRgb01(document.getElementById('gdoc-color').value);
     setStatus('Creating your Google Doc…', 'info');
     try{
@@ -971,10 +971,10 @@ function exportSetlistToGoogleDoc(){
       const endIndex = baseIndex + text.length;
       const requests = [{ insertText: { location: { index: baseIndex }, text } }];
 
-      // base font family + size across the whole doc
+      // base font family + size (12pt lyrics) across the whole doc
       requests.push({ updateTextStyle: {
         range: { startIndex: baseIndex, endIndex },
-        textStyle: { weightedFontFamily: { fontFamily }, fontSize: { magnitude: fontSize, unit: 'PT' } },
+        textStyle: { weightedFontFamily: { fontFamily, weight: fontWeight }, fontSize: { magnitude: BODY_SIZE, unit: 'PT' } },
         fields: 'weightedFontFamily,fontSize'
       }});
 
@@ -982,35 +982,35 @@ function exportSetlistToGoogleDoc(){
       titleRanges.forEach(([s,e])=>{
         requests.push({ updateTextStyle: {
           range: { startIndex: baseIndex+s, endIndex: baseIndex+e },
-          textStyle: { bold: true, fontSize: { magnitude: fontSize+8, unit: 'PT' } },
+          textStyle: { bold: true, fontSize: { magnitude: TITLE_SIZE, unit: 'PT' } },
           fields: 'bold,fontSize'
         }});
       });
 
-      // section headings — colored + large
+      // section headings (Praise/Avivamiento etc.) — colored, 25pt
       sectionHeadRanges.forEach(([s,e])=>{
         requests.push({ updateTextStyle: {
           range: { startIndex: baseIndex+s, endIndex: baseIndex+e },
-          textStyle: { bold: true, fontSize: { magnitude: fontSize+16, unit: 'PT' }, foregroundColor: { color: { rgbColor: rgb } } },
+          textStyle: { bold: true, fontSize: { magnitude: HEAD_SIZE, unit: 'PT' }, foregroundColor: { color: { rgbColor: rgb } } },
           fields: 'bold,fontSize,foregroundColor'
         }});
       });
 
-      // song headings (in the full-lyrics block) — colored + medium
+      // song titles (in the full-lyrics block) — colored, 25pt
       songHeadRanges.forEach(([s,e])=>{
         requests.push({ updateTextStyle: {
           range: { startIndex: baseIndex+s, endIndex: baseIndex+e },
-          textStyle: { bold: true, fontSize: { magnitude: fontSize+6, unit: 'PT' }, foregroundColor: { color: { rgbColor: rgb } } },
+          textStyle: { bold: true, fontSize: { magnitude: HEAD_SIZE, unit: 'PT' }, foregroundColor: { color: { rgbColor: rgb } } },
           fields: 'bold,fontSize,foregroundColor'
         }});
       });
 
-      // structural labels — CORO / VERSE / BRIDGE / PUENTE / TAG etc — bold black
+      // structural labels — CORO / VERSE / BRIDGE / PUENTE / TAG etc — bold, same 12pt as lyrics
       labelRanges.forEach(([s,e])=>{
         requests.push({ updateTextStyle: {
           range: { startIndex: baseIndex+s, endIndex: baseIndex+e },
-          textStyle: { bold: true },
-          fields: 'bold'
+          textStyle: { bold: true, fontSize: { magnitude: BODY_SIZE, unit: 'PT' } },
+          fields: 'bold,fontSize'
         }});
       });
 
