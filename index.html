@@ -109,6 +109,7 @@
       <button onclick="openDriveModal()">Search Drive</button>
       <button onclick="previewSetlist()">Preview</button>
       <button class="primary" onclick="copySetlist()">Copy setlist</button>
+      <button onclick="openGDocModal()">📝 Export as Google Doc</button>
       <button onclick="clearSetlist()" style="color:#791f1f">Clear</button>
     </div>
   </div>
@@ -306,6 +307,36 @@
     <div class="btn-row">
       <button class="primary" onclick="copySetlist()">Copy setlist</button>
       <button onclick="document.getElementById('preview-overlay').classList.remove('open')">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- GOOGLE DOC EXPORT MODAL -->
+<div class="overlay" id="gdoc-overlay">
+  <div class="modal">
+    <h3>Export as Google Doc</h3>
+    <p style="font-size:13px;color:var(--text2);font-family:system-ui,sans-serif;margin-bottom:1rem;line-height:1.6">Creates a real Google Doc of your setlist with the font, size, and color you pick below.</p>
+    <div class="two-col">
+      <div class="field"><label>Font</label>
+        <select id="gdoc-font">
+          <option value="Arial">Arial</option>
+          <option value="Georgia">Georgia</option>
+          <option value="Times New Roman">Times New Roman</option>
+          <option value="Verdana">Verdana</option>
+          <option value="Calibri">Calibri</option>
+          <option value="Courier New">Courier New</option>
+          <option value="Roboto">Roboto</option>
+          <option value="Montserrat">Montserrat</option>
+          <option value="Lato">Lato</option>
+          <option value="Comic Sans MS">Comic Sans MS</option>
+        </select>
+      </div>
+      <div class="field"><label>Size (pt)</label><input type="number" id="gdoc-size" value="12" min="6" max="36" /></div>
+    </div>
+    <div class="field"><label>Color</label><input type="color" id="gdoc-color" value="#1a1a1a" style="height:38px;padding:2px;cursor:pointer" /></div>
+    <div class="btn-row">
+      <button class="primary" onclick="exportSetlistToGoogleDoc()">Create Google Doc</button>
+      <button onclick="closeGDocModal()">Cancel</button>
     </div>
   </div>
 </div>
@@ -846,6 +877,100 @@ async function googlePickerCallback(data){
     if(targetEl) targetEl.innerHTML = '<span style="color:#791f1f">Could not load that file from Drive.</span>';
     setStatus('Drive import failed.', 'error');
   }
+}
+
+// ── EXPORT SETLIST AS A REAL GOOGLE DOC (font/size/color of your choice) ─────
+function openGDocModal(){
+  if(!setlist.length){ setStatus('Add songs to your setlist first.', 'error'); return; }
+  document.getElementById('gdoc-overlay').classList.add('open');
+}
+function closeGDocModal(){ document.getElementById('gdoc-overlay').classList.remove('open'); }
+
+function hexToRgb01(hex){
+  hex = (hex||'#000000').replace('#','');
+  return {
+    red: parseInt(hex.substring(0,2),16)/255,
+    green: parseInt(hex.substring(2,4),16)/255,
+    blue: parseInt(hex.substring(4,6),16)/255
+  };
+}
+
+function exportSetlistToGoogleDoc(){
+  ensureGoogleToken(async () => {
+    const fontFamily = document.getElementById('gdoc-font').value;
+    const fontSize = parseInt(document.getElementById('gdoc-size').value, 10) || 12;
+    const rgb = hexToRgb01(document.getElementById('gdoc-color').value);
+    setStatus('Creating your Google Doc…', 'info');
+    try{
+      const svcTitle = document.getElementById('svc-title').value || 'Worship Service';
+      const date = document.getElementById('svc-date').value;
+      const dateStr = date ? new Date(date+'T12:00:00').toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'}) : '';
+
+      let text = svcTitle + '\n';
+      if(dateStr) text += dateStr + '\n';
+      text += '\n';
+      const sectionOrder=['Praise/Avivamiento','Worship/Adoración','Offering/Ofrenda','Altar Call','Special','Extra'];
+      const grouped = {};
+      setlist.forEach(s=>{ const sec=s.section||'Special'; (grouped[sec]=grouped[sec]||[]).push(s); });
+      const allSections = [...sectionOrder, ...Object.keys(grouped).filter(s=>!sectionOrder.includes(s))];
+      const headerRanges = [];
+      allSections.forEach(sec=>{
+        const songs = grouped[sec];
+        if(!songs || !songs.length) return;
+        const headerStart = text.length;
+        text += sec.toUpperCase() + '\n';
+        headerRanges.push([headerStart, text.length - 1]);
+        songs.forEach(s=>{
+          text += s.title + '\n';
+          text += (s.lyrics||'') + '\n\n';
+        });
+      });
+
+      const createRes = await fetch('https://docs.googleapis.com/v1/documents', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${googleAccessToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: dateStr ? `${svcTitle} — ${dateStr}` : svcTitle })
+      });
+      if(!createRes.ok) throw new Error('create failed: ' + createRes.status);
+      const doc = await createRes.json();
+      const documentId = doc.documentId;
+
+      const baseIndex = 1;
+      const endIndex = baseIndex + text.length;
+      const requests = [
+        { insertText: { location: { index: baseIndex }, text } },
+        { updateTextStyle: {
+            range: { startIndex: baseIndex, endIndex: endIndex },
+            textStyle: {
+              weightedFontFamily: { fontFamily },
+              fontSize: { magnitude: fontSize, unit: 'PT' },
+              foregroundColor: { color: { rgbColor: rgb } }
+            },
+            fields: 'weightedFontFamily,fontSize,foregroundColor'
+        }}
+      ];
+      headerRanges.forEach(([s,e])=>{
+        requests.push({ updateTextStyle: {
+          range: { startIndex: baseIndex+s, endIndex: baseIndex+e },
+          textStyle: { bold: true, fontSize: { magnitude: fontSize+2, unit: 'PT' } },
+          fields: 'bold,fontSize'
+        }});
+      });
+
+      const updateRes = await fetch(`https://docs.googleapis.com/v1/documents/${documentId}:batchUpdate`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${googleAccessToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ requests })
+      });
+      if(!updateRes.ok) throw new Error('formatting failed: ' + updateRes.status);
+
+      closeGDocModal();
+      setStatus('Google Doc created!', 'success');
+      window.open(`https://docs.google.com/document/d/${documentId}/edit`, '_blank');
+    }catch(e){
+      setStatus('Could not create the Google Doc — make sure the Google Docs API is enabled in your Cloud project.', 'error');
+    }
+  });
 }
 
 // ── ADD MANUALLY ─────────────────────────────────────────────────────────────
