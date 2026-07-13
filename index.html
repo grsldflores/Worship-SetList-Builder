@@ -168,11 +168,11 @@
         These medley are based on how songs have actually been used together in your past setlists — medleys, back-to-back flows, and song switches documented in your Drive docs. You can also ask Claude for suggestions on any song.
       </div>
       <!-- Search for suggestions -->
-      <label>Ask Claude for a song</label>
+      <label>Suggestions</label>
       <div class="search-row" style="margin-bottom:0">
         <input type="text" id="medley-search" placeholder="Type a song name…" style="flex:1;color:#1a1a1a;background:#fff" list="medley-datalist" onkeydown="if(event.key==='Enter')getAISuggestions()" />
         <datalist id="medley-datalist"></datalist>
-        <button onclick="getAISuggestions()">Ask Claude</button>
+        <button onclick="getAISuggestions()">Suggestions</button>
       </div>
       <div id="ai-suggestions" style="margin-top:10px;font-size:13px;color:var(--text3);font-family:system-ui,sans-serif"></div>
     </div>
