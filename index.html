@@ -79,6 +79,27 @@
   .section-divider { font-size: 11px; color: #9a9a9a; text-transform: uppercase; letter-spacing: .07em; padding: 8px 0 4px; margin-top: 4px; font-family: system-ui, sans-serif; }
   option { color: #1a1a1a; background: #ffffff; font-family: system-ui, sans-serif; font-size: 14px; }
   datalist { color: #1a1a1a; }
+
+  /* PRESENTATION MODE */
+  .present-overlay { display: none; position: fixed; inset: 0; background: #fdfcfa; color: #1a1a1a; z-index: 200; flex-direction: column; }
+  .present-overlay.open { display: flex; }
+  .present-overlay.dark { background: #111111; color: #f2f0ea; }
+  .present-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 18px; border-bottom: 0.5px solid var(--border); flex-shrink: 0; }
+  .present-overlay.dark .present-top { border-color: rgba(255,255,255,.15); }
+  .present-titles { min-width: 0; }
+  .present-title { font-size: 16px; font-weight: 500; font-family: system-ui, sans-serif; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .present-sub { font-size: 12px; color: #9a9a9a; font-family: system-ui, sans-serif; margin-top: 2px; }
+  .present-controls { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+  .present-overlay .icon-btn { background: #ffffff; }
+  .present-overlay.dark .icon-btn { background: transparent; border-color: rgba(255,255,255,.25); color: #f2f0ea; }
+  .present-overlay.dark .icon-btn:hover { background: rgba(255,255,255,.1); border-color: #f2f0ea; }
+  .present-body { flex: 1; overflow-y: auto; padding: 2rem 1.5rem 7rem; white-space: pre-wrap; line-height: 1.75; font-family: 'Georgia','Times New Roman',serif; text-align: center; }
+  .present-nav { position: fixed; left: 0; right: 0; bottom: 0; display: flex; gap: 10px; padding: 14px 18px calc(14px + env(safe-area-inset-bottom)); background: inherit; border-top: 0.5px solid var(--border); }
+  .present-overlay.dark .present-nav { border-color: rgba(255,255,255,.15); }
+  .present-nav button { flex: 1; justify-content: center; padding: 12px; font-size: 14px; }
+  .present-overlay.dark .present-nav button { background: transparent; border-color: rgba(255,255,255,.25); color: #f2f0ea; }
+  .present-overlay.dark .present-nav button:hover { background: rgba(255,255,255,.1); }
+  .present-nav button:disabled { opacity: .35; cursor: default; }
 </style>
 </head>
 
@@ -113,6 +134,7 @@
       <button onclick="previewSetlist()">Preview</button>
       <button class="primary" onclick="copySetlist()">Copy setlist</button>
       <button onclick="openGDocModal()">📝 Export as Google Doc</button>
+      <button onclick="openPresentMode()">🖥️ Present</button>
       <button onclick="clearSetlist()" style="color:#791f1f">Clear</button>
     </div>
   </div>
@@ -273,6 +295,27 @@
   </div>
 </div>
 
+<!-- PRESENTATION MODE -->
+<div class="present-overlay" id="present-overlay">
+  <div class="present-top">
+    <div class="present-titles">
+      <div class="present-title" id="present-title"></div>
+      <div class="present-sub" id="present-sub"></div>
+    </div>
+    <div class="present-controls">
+      <button class="icon-btn" onclick="presentFont(-2)" title="Smaller text">A−</button>
+      <button class="icon-btn" onclick="presentFont(2)" title="Larger text">A+</button>
+      <button class="icon-btn" onclick="presentToggleDark()" title="Toggle dark mode">🌙</button>
+      <button class="icon-btn danger" onclick="closePresentMode()" title="Close">✕</button>
+    </div>
+  </div>
+  <div class="present-body" id="present-body"></div>
+  <div class="present-nav">
+    <button id="present-prev" onclick="presentNav(-1)">← Previous</button>
+    <button id="present-next" onclick="presentNav(1)">Next →</button>
+  </div>
+</div>
+
 <!-- EDIT MODAL -->
 <div class="overlay" id="edit-overlay">
   <div class="modal">
@@ -348,6 +391,20 @@ const BADGE_CLASS = {'Praise/Avivamiento':'praise','Worship/Adoración':'worship
 const SUPABASE_URL = 'https://zgkpprzfspzvneslrxlt.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inpna3Bwcnpmc3B6dm5lc2xyeGx0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI4NDcyODQsImV4cCI6MjA5ODQyMzI4NH0.OmcLXov0SpczoJ1kAfPGTvp0OUTlQwLY7I1avg9QumE';
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const ASK_CLAUDE_URL = SUPABASE_URL + '/functions/v1/ask-claude';
+async function callClaude(prompt, maxTokens){
+  const res = await fetch(ASK_CLAUDE_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY, 'apikey': SUPABASE_ANON_KEY },
+    body: JSON.stringify({ prompt, max_tokens: maxTokens || 1024 })
+  });
+  const data = await res.json().catch(()=>({}));
+  if(!res.ok || data.error) throw new Error(data.error || ('Request failed (' + res.status + ')'));
+  return data.text || '';
+}
+function escapeHtml(s){
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
 
 // Song library now lives in Supabase — see loadLibrary().
 
@@ -544,30 +601,21 @@ function addMedleyToSetlist(i){
   setStatus(`Added ${added} songs to setlist.`, 'success');
 }
 
-function getAISuggestions(){
+async function getAISuggestions(){
   const q = document.getElementById('medley-search').value.trim();
   if(!q){ setStatus('Type a song name first.','error'); return; }
   // Filter medley list below
   renderMedley(q);
-  // Build copy-prompt box
   const el = document.getElementById('ai-suggestions');
   const songList = library.map(s=>s.title).join(', ');
   const promptText = 'Suggest 2-3 songs from our library that pair well with "' + q + '" as a medley or natural flow for our bilingual (EN/ES) worship service. Only explain where to transition and how — no extra commentary. Library: ' + songList;
-  el.innerHTML =
-    '<div style="background:#e6f1fb;border-radius:8px;padding:12px 14px;font-family:system-ui,sans-serif;">' +
-      '<div style="font-size:12px;color:#0c447c;margin-bottom:8px;font-weight:500">Copy this prompt and paste it into your Claude chat:</div>' +
-      '<textarea id="medley-prompt-ta" readonly style="width:100%;font-size:12px;font-family:system-ui,sans-serif;border:0.5px solid #b3d4f5;border-radius:6px;padding:8px;background:#fff;color:#1a1a1a;line-height:1.5;resize:none;height:80px">' + promptText.replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</textarea>' +
-      '<button onclick="copyMedleyPrompt()" style="margin-top:8px;font-size:12px;padding:5px 14px" id="medley-copy-btn">Copy</button>' +
-    '</div>';
-}
-
-function copyMedleyPrompt(){
-  const ta = document.getElementById('medley-prompt-ta');
-  const btn = document.getElementById('medley-copy-btn');
-  ta.select();
-  navigator.clipboard.writeText(ta.value)
-    .then(()=>{ btn.textContent='✓ Copied!'; setTimeout(()=>btn.textContent='Copy',2500); })
-    .catch(()=>{ document.execCommand('copy'); btn.textContent='✓ Copied!'; setTimeout(()=>btn.textContent='Copy',2500); });
+  el.innerHTML = '<div style="background:#e6f1fb;border-radius:8px;padding:12px 14px;font-family:system-ui,sans-serif;font-size:13px;color:#0c447c"><span class="spinner"></span>Asking Claude…</div>';
+  try{
+    const text = await callClaude(promptText, 500);
+    el.innerHTML = '<div style="background:#e6f1fb;border-radius:8px;padding:12px 14px;font-family:system-ui,sans-serif;font-size:13px;color:#1a1a1a;white-space:pre-wrap;line-height:1.6">' + escapeHtml(text) + '</div>';
+  }catch(e){
+    el.innerHTML = '<div style="background:var(--danger-bg);border-radius:8px;padding:12px 14px;font-family:system-ui,sans-serif;font-size:13px;color:var(--danger-text)">Couldn\'t reach Claude — ' + escapeHtml(e.message) + '</div>';
+  }
 }
 
 // ── EVENTS DATA ───────────────────────────────────────────────────────────────
@@ -629,23 +677,20 @@ function renderEventSuggestions(){
   }).join('');
 }
 
-function getEventSetlist(){
+async function getEventSetlist(){
   const key = document.getElementById('event-select').value;
   if(!key){ setStatus('Select an event first.','error'); return; }
   const event = EVENTS[key];
   const el = document.getElementById('event-ai-result');
   const songTitles = library.map(s=>s.title).join(', ');
   const prompt = 'Build a worship setlist for our ' + event.label + ' service at Sandy Apostolic Church. Structure it with: Praise/Avivamiento, Worship/Adoración, Offering/Ofrenda, Altar Call. Pick 6-9 songs and briefly explain why each fits. Format: summary on top grouped by section, then full setlist in order. Only use songs from this library:\n\n' + songTitles;
-  el.innerHTML = `
-    <div style="background:#e6f1fb;border-radius:8px;padding:12px 14px;font-family:system-ui,sans-serif;">
-      <div style="font-size:12px;color:#0c447c;margin-bottom:8px;font-weight:500">Copy this prompt and paste it into your Claude chat for a full setlist:</div>
-      <textarea readonly onclick="this.select()" style="width:100%;font-size:12px;font-family:system-ui,sans-serif;border:0.5px solid #b3d4f5;border-radius:6px;padding:8px;background:#fff;color:#1a1a1a;line-height:1.5;resize:none;min-height:100px">${prompt}</textarea>
-      <button onclick="
-        const ta=this.previousElementSibling;
-        ta.select();
-        navigator.clipboard.writeText(ta.value).then(()=>{this.textContent='✓ Copied!';setTimeout(()=>this.textContent='Copy',2000)}).catch(()=>{document.execCommand('copy');this.textContent='✓ Copied!';setTimeout(()=>this.textContent='Copy',2000)})
-      " style="margin-top:8px;font-size:12px;padding:5px 14px">Copy</button>
-    </div>`;
+  el.innerHTML = '<div style="background:#e6f1fb;border-radius:8px;padding:12px 14px;font-family:system-ui,sans-serif;font-size:13px;color:#0c447c"><span class="spinner"></span>Asking Claude to build your setlist…</div>';
+  try{
+    const text = await callClaude(prompt, 1200);
+    el.innerHTML = '<div style="background:#e6f1fb;border-radius:8px;padding:12px 14px;font-family:system-ui,sans-serif;font-size:13px;color:#1a1a1a;white-space:pre-wrap;line-height:1.6">' + escapeHtml(text) + '</div>';
+  }catch(e){
+    el.innerHTML = '<div style="background:var(--danger-bg);border-radius:8px;padding:12px 14px;font-family:system-ui,sans-serif;font-size:13px;color:var(--danger-text)">Couldn\'t reach Claude — ' + escapeHtml(e.message) + '</div>';
+  }
 }
 
 
@@ -702,6 +747,52 @@ function clearSetlist(){
   if(setlist.length && !confirm('Clear the whole setlist? This is shared across every device.')) return;
   setlist=[];renderSetlist();saveSetlistState();
 }
+
+// ── PRESENTATION MODE ─────────────────────────────────────────────────────────
+let presentIdx = 0;
+let presentFontSize = 30;
+let presentDark = false;
+function openPresentMode(startIdx){
+  if(!setlist.length){ setStatus('Add songs to the setlist first.','error'); return; }
+  presentIdx = startIdx || 0;
+  document.getElementById('present-overlay').classList.add('open');
+  renderPresent();
+}
+function closePresentMode(){
+  document.getElementById('present-overlay').classList.remove('open');
+}
+function presentNav(dir){
+  presentIdx = Math.max(0, Math.min(setlist.length-1, presentIdx+dir));
+  renderPresent();
+}
+function presentFont(delta){
+  presentFontSize = Math.max(16, Math.min(64, presentFontSize+delta));
+  document.getElementById('present-body').style.fontSize = presentFontSize+'px';
+}
+function presentToggleDark(){
+  presentDark = !presentDark;
+  document.getElementById('present-overlay').classList.toggle('dark', presentDark);
+}
+function renderPresent(){
+  const s = setlist[presentIdx];
+  if(!s) return;
+  document.getElementById('present-title').textContent = s.title;
+  document.getElementById('present-sub').textContent = `${s.section} · ${presentIdx+1} / ${setlist.length}`;
+  const body = document.getElementById('present-body');
+  body.textContent = s.lyrics && s.lyrics.trim() ? s.lyrics : '(No lyrics saved for this song.)';
+  body.style.fontSize = presentFontSize+'px';
+  body.scrollTop = 0;
+  document.getElementById('present-prev').disabled = presentIdx===0;
+  document.getElementById('present-next').disabled = presentIdx===setlist.length-1;
+}
+document.addEventListener('keydown', e=>{
+  const ov = document.getElementById('present-overlay');
+  if(!ov || !ov.classList.contains('open')) return;
+  if(e.key==='ArrowRight') presentNav(1);
+  else if(e.key==='ArrowLeft') presentNav(-1);
+  else if(e.key==='Escape') closePresentMode();
+});
+
 function addToSetlist(song, section){
   setlist.push({...song, section: section||song.section});
   renderSetlist();
