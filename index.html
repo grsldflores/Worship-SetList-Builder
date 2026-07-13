@@ -219,9 +219,9 @@
         <div id="event-song-list"></div>
       </div>
       <div class="card">
-        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;font-family:system-ui,sans-serif;margin-bottom:8px">Ask Claude — Build a full setlist for this event</div>
+        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;font-family:system-ui,sans-serif;margin-bottom:8px">Suggestions — Build a full setlist for this event</div>
         <p style="font-size:13px;color:var(--text2);font-family:system-ui,sans-serif;margin-bottom:10px">Get a suggested order with section breakdown tailored to this occasion.</p>
-        <button onclick="getEventSetlist()">Ask Claude to build it</button>
+        <button onclick="getEventSetlist()">Build it</button>
         <div id="event-ai-result" style="margin-top:12px;font-size:13px;font-family:system-ui,sans-serif;line-height:1.7"></div>
       </div>
     </div>
@@ -229,6 +229,15 @@
 
   <!-- ADD SONG -->
   <div id="pane-add" style="display:none">
+    <div class="card">
+      <label>Search for a song</label>
+      <p style="font-size:13px;color:var(--text2);margin-bottom:10px;font-family:system-ui,sans-serif">Check whether a song is already in the library before adding it.</p>
+      <div class="search-row" style="margin-bottom:0">
+        <input type="text" id="add-search-title" placeholder="Type a song name…" style="flex:1;color:#1a1a1a;background:#fff" onkeydown="if(event.key==='Enter')checkLibraryForSong()" />
+        <button onclick="checkLibraryForSong()">Search</button>
+      </div>
+      <div id="add-search-results" style="margin-top:10px;font-size:13px;color:var(--text3);font-family:system-ui,sans-serif"></div>
+    </div>
     <div class="card">
       <label>Add from Google Drive</label>
       <p style="font-size:13px;color:var(--text2);margin-bottom:10px;font-family:system-ui,sans-serif">Pick an existing lyrics doc from your Drive.</p>
@@ -410,6 +419,7 @@ function escapeHtml(s){
 
 let library = [], setlist = [], viewIdx = -1, editIdx = -1;
 let setlistSaveTimer = null;
+let lastMedleySongs = [], lastEventSongs = [];
 
 // ── SUPABASE-BACKED LIBRARY + SETLIST (synced across every device) ──────────
 async function loadLibrary(){
@@ -566,7 +576,8 @@ function addMedleyByIndex(ri){
 
 function addSongsToSetlist(songsJson){
   let songs;
-  try { songs = JSON.parse(songsJson.replace(/&quot;/g,'"')); } catch(e){ songs = songsJson; }
+  if(Array.isArray(songsJson)) songs = songsJson;
+  else { try { songs = JSON.parse(String(songsJson).replace(/&quot;/g,'"')); } catch(e){ songs = []; } }
   let added = 0;
   songs.forEach(songTitle => {
     let match = library.find(s => s.title.toLowerCase() === songTitle.toLowerCase());
@@ -579,6 +590,9 @@ function addSongsToSetlist(songsJson){
   switchMain('setlist');
   setStatus('Added '+added+' songs to setlist.', 'success');
 }
+
+function addMedleySuggestionToSetlist(){ addSongsToSetlist(lastMedleySongs); }
+function addEventSuggestionToSetlist(){ addSongsToSetlist(lastEventSongs); }
 
 function addMedleyToSetlist(i){
   const medley = MEDLEYS[i];
@@ -608,11 +622,19 @@ async function getAISuggestions(){
   renderMedley(q);
   const el = document.getElementById('ai-suggestions');
   const songList = library.map(s=>s.title).join(', ');
-  const promptText = 'Suggest 2-3 songs that pair well with "' + q + '" as a medley or natural flow for our bilingual (EN/ES) Apostolic worship service. Prefer songs from our library below, but you may also suggest well-known Christian worship songs not in our library if they fit better. Important: our church holds Apostolic (Oneness) theology, so do not suggest songs with explicitly Trinitarian language (e.g. addressing God as three distinct persons, "Father, Son, and Holy Spirit" as three, etc.) — songs should focus on Jesus\' name and be otherwise doctrinally neutral. Keep formatting as plain text only — no asterisks or markdown. Only explain where to transition and how — no extra commentary. Library: ' + songList;
+  const promptText = 'Suggest 2-3 songs that pair well with "' + q + '" as a medley or natural flow for our bilingual (EN/ES) Apostolic worship service. Prefer songs from our library below, but you may also suggest well-known Christian worship songs not in our library if they fit better. Important: our church holds Apostolic (Oneness) theology, so do not suggest songs with explicitly Trinitarian language (e.g. addressing God as three distinct persons, "Father, Son, and Holy Spirit" as three, etc.) — songs should focus on Jesus\' name and be otherwise doctrinally neutral. Keep formatting as plain text only — no asterisks or markdown. Only explain where to transition and how — no extra commentary. After your explanation, end with one final line starting exactly with "SONGS:" followed by the titles of the songs you suggested, separated by " | " (use the exact title text). Library: ' + songList;
   el.innerHTML = '<div style="background:#e6f1fb;border-radius:8px;padding:12px 14px;font-family:system-ui,sans-serif;font-size:13px;color:#0c447c"><span class="spinner"></span>Loading Suggestions…</div>';
   try{
     const text = await callClaude(promptText, 1500);
-    el.innerHTML = '<div style="background:#e6f1fb;border-radius:8px;padding:12px 14px;font-family:system-ui,sans-serif;font-size:13px;color:#1a1a1a;white-space:pre-wrap;line-height:1.6">' + escapeHtml(text) + '</div>';
+    let displayText = text;
+    lastMedleySongs = [];
+    const sm = text.match(/SONGS:\s*(.+)\s*$/i);
+    if(sm){
+      lastMedleySongs = sm[1].split('|').map(s=>s.trim()).filter(Boolean);
+      displayText = text.slice(0, sm.index).trim();
+    }
+    const addBtn = lastMedleySongs.length ? '<button style="margin-top:10px;font-size:12px;padding:6px 14px;cursor:pointer" onclick="addMedleySuggestionToSetlist()">+ Add to setlist</button>' : '';
+    el.innerHTML = '<div style="background:#e6f1fb;border-radius:8px;padding:12px 14px;font-family:system-ui,sans-serif;font-size:13px;color:#1a1a1a;white-space:pre-wrap;line-height:1.6">' + escapeHtml(displayText) + '</div>' + addBtn;
   }catch(e){
     el.innerHTML = '<div style="background:var(--danger-bg);border-radius:8px;padding:12px 14px;font-family:system-ui,sans-serif;font-size:13px;color:var(--danger-text)">Couldn\'t reach Claude — ' + escapeHtml(e.message) + '</div>';
   }
@@ -683,16 +705,50 @@ async function getEventSetlist(){
   const event = EVENTS[key];
   const el = document.getElementById('event-ai-result');
   const songTitles = library.map(s=>s.title).join(', ');
-  const prompt = 'Build a worship setlist for our ' + event.label + ' service at Sandy Apostolic Church. Structure it with: Praise/Avivamiento, Worship/Adoración, Offering/Ofrenda, Altar Call. Pick 6-9 songs and briefly explain why each fits. Format: summary on top grouped by section, then full setlist in order. Only use songs from this library:\n\n' + songTitles;
-  el.innerHTML = '<div style="background:#e6f1fb;border-radius:8px;padding:12px 14px;font-family:system-ui,sans-serif;font-size:13px;color:#0c447c"><span class="spinner"></span>Asking Claude to build your setlist…</div>';
+  const prompt = 'Build a worship setlist for our ' + event.label + ' service at Sandy Apostolic Church. Structure it with: Praise/Avivamiento, Worship/Adoración, Offering/Ofrenda, Altar Call. Pick 6-9 songs and briefly explain why each fits. Format: summary on top grouped by section, then full setlist in order. Keep formatting as plain text only — no markdown headings (#, ##) or asterisks/bold. Only use songs from this library. After your explanation, end with one final line starting exactly with "SONGS:" followed by the titles of all the songs you picked, in order, separated by " | " (use the exact title text from the library):\n\n' + songTitles;
+  el.innerHTML = '<div style="background:#e6f1fb;border-radius:8px;padding:12px 14px;font-family:system-ui,sans-serif;font-size:13px;color:#0c447c"><span class="spinner"></span>Loading Suggestions…</div>';
   try{
-    const text = await callClaude(prompt, 1200);
-    el.innerHTML = '<div style="background:#e6f1fb;border-radius:8px;padding:12px 14px;font-family:system-ui,sans-serif;font-size:13px;color:#1a1a1a;white-space:pre-wrap;line-height:1.6">' + escapeHtml(text) + '</div>';
+    const text = await callClaude(prompt, 2000);
+    let displayText = text;
+    lastEventSongs = [];
+    const sm = text.match(/SONGS:\s*(.+)\s*$/i);
+    if(sm){
+      lastEventSongs = sm[1].split('|').map(s=>s.trim()).filter(Boolean);
+      displayText = text.slice(0, sm.index).trim();
+    }
+    const addBtn = lastEventSongs.length ? '<button style="margin-top:10px;font-size:12px;padding:6px 14px;cursor:pointer" onclick="addEventSuggestionToSetlist()">+ Add to setlist</button>' : '';
+    el.innerHTML = '<div style="background:#e6f1fb;border-radius:8px;padding:12px 14px;font-family:system-ui,sans-serif;font-size:13px;color:#1a1a1a;white-space:pre-wrap;line-height:1.6">' + escapeHtml(displayText) + '</div>' + addBtn;
   }catch(e){
     el.innerHTML = '<div style="background:var(--danger-bg);border-radius:8px;padding:12px 14px;font-family:system-ui,sans-serif;font-size:13px;color:var(--danger-text)">Couldn\'t reach Claude — ' + escapeHtml(e.message) + '</div>';
   }
 }
 
+
+function checkLibraryForSong(){
+  const q = document.getElementById('add-search-title').value.trim();
+  const el = document.getElementById('add-search-results');
+  if(!q){ el.innerHTML = 'Type a song name first.'; return; }
+  const matches = library.filter(s => s.title.toLowerCase().includes(q.toLowerCase()));
+  const searchUrl = 'https://www.google.com/search?q=' + encodeURIComponent(q + ' lyrics');
+  let html = '';
+  if(matches.length){
+    html += '<div style="margin-bottom:8px">Already in the library:</div>';
+    matches.forEach(s => {
+      const i = library.indexOf(s);
+      html += '<div style="display:flex;align-items:center;justify-content:space-between;background:#fff;border:1px solid #e5e5e5;border-radius:8px;padding:8px 12px;margin-bottom:6px">'
+        + '<span>' + escapeHtml(s.title) + '</span>'
+        + '<button style="font-size:12px;padding:4px 10px" onclick="viewSong(' + i + ')">View</button>'
+        + '</div>';
+    });
+  } else {
+    html += '<div style="margin-bottom:8px">Not in the library yet.</div>';
+  }
+  html += '<div style="margin-top:6px;display:flex;gap:8px;flex-wrap:wrap">'
+    + '<button style="font-size:12px;padding:6px 12px" onclick="window.open(\'' + searchUrl + '\', \'_blank\')">🔎 Search lyrics online</button>'
+    + '<button style="font-size:12px;padding:6px 12px" onclick="document.getElementById(\'new-title\').value=document.getElementById(\'add-search-title\').value; document.getElementById(\'new-lyrics\').focus(); document.getElementById(\'new-lyrics\').scrollIntoView({behavior:\'smooth\',block:\'center\'})">+ Use this title below</button>'
+    + '</div>';
+  el.innerHTML = html;
+}
 
 function switchMain(tab){
   ['setlist','library','medley','events','add'].forEach((t,i)=>{
