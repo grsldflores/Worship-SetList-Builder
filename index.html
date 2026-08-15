@@ -87,8 +87,13 @@
   .present-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 18px; border-bottom: 0.5px solid var(--border); flex-shrink: 0; }
   .present-overlay.dark .present-top { border-color: rgba(255,255,255,.15); }
   .present-titles { min-width: 0; }
-  .present-title { font-size: 16px; font-weight: 500; font-family: system-ui, sans-serif; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .present-badge { font-size: 13px; font-weight: 600; font-family: Georgia, 'Times New Roman', serif; color: #e0725a; text-transform: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .present-overlay.dark .present-badge { color: #ef9683; }
+  .present-title { font-size: 26px; font-weight: 400; font-family: Georgia, 'Times New Roman', serif; color: #1f3a5f; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 1px; }
+  .present-overlay.dark .present-title { color: #9fc2ec; }
   .present-sub { font-size: 12px; color: #9a9a9a; font-family: system-ui, sans-serif; margin-top: 2px; }
+  .present-label { font-size: 0.72em; font-weight: 600; letter-spacing: .03em; color: #3a6bb0; font-family: system-ui, sans-serif; margin: .9em 0 .15em; }
+  .present-overlay.dark .present-label { color: #7fb0f0; }
   .present-controls { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
   .present-overlay .icon-btn { background: #ffffff; }
   .present-overlay.dark .icon-btn { background: transparent; border-color: rgba(255,255,255,.25); color: #f2f0ea; }
@@ -135,6 +140,7 @@
       <button class="primary" onclick="copySetlist()">Copy setlist</button>
       <button onclick="openGDocModal()">📝 Export as Google Doc</button>
       <button onclick="openPresentMode()">🖥️ Present</button>
+      <button onclick="bulkLyricsFromSetlist()">📝 Bulk add lyrics</button>
       <button onclick="clearSetlist()" style="color:#791f1f">Clear</button>
     </div>
   </div>
@@ -158,6 +164,7 @@
     <div class="btn-row">
       <button onclick="exportJSON()">Download JSON</button>
       <button onclick="resetLibrary()">Reload library</button>
+      <button onclick="bulkLyricsFromMissing()">📝 Add missing lyrics</button>
     </div>
   </div>
 
@@ -308,6 +315,7 @@
 <div class="present-overlay" id="present-overlay">
   <div class="present-top">
     <div class="present-titles">
+      <div class="present-badge" id="present-badge"></div>
       <div class="present-title" id="present-title"></div>
       <div class="present-sub" id="present-sub"></div>
     </div>
@@ -420,6 +428,7 @@ function escapeHtml(s){
 let library = [], setlist = [], viewIdx = -1, editIdx = -1;
 let setlistSaveTimer = null;
 let lastMedleySongs = [], lastEventSongs = [];
+let medleyExcluded = [];
 
 // ── SUPABASE-BACKED LIBRARY + SETLIST (synced across every device) ──────────
 async function loadLibrary(){
@@ -616,13 +625,30 @@ function addMedleyToSetlist(i){
 }
 
 async function getAISuggestions(){
+  medleyExcluded = [];
+  await runMedleySuggestions();
+}
+
+function moreMedleySuggestions(){
+  runMedleySuggestions();
+}
+
+function continueMedleySuggestionByIndex(idx){
+  const title = lastMedleySongs[idx];
+  if(!title) return;
+  document.getElementById('medley-search').value = title;
+  runMedleySuggestions();
+}
+
+async function runMedleySuggestions(){
   const q = document.getElementById('medley-search').value.trim();
   if(!q){ setStatus('Type a song name first.','error'); return; }
   // Filter medley list below
   renderMedley(q);
   const el = document.getElementById('ai-suggestions');
   const songList = library.map(s=>s.title).join(', ');
-  const promptText = 'Suggest 2-3 songs that pair well with "' + q + '" as a medley or natural flow for our bilingual (EN/ES) Apostolic worship service. Prefer songs from our library below, but you may also suggest well-known Christian worship songs not in our library if they fit better. Important: our church holds Apostolic (Oneness) theology, so do not suggest songs with explicitly Trinitarian language (e.g. addressing God as three distinct persons, "Father, Son, and Holy Spirit" as three, etc.) — songs should focus on Jesus\' name and be otherwise doctrinally neutral. Keep formatting as plain text only — no asterisks or markdown. Only explain where to transition and how — no extra commentary. After your explanation, end with one final line starting exactly with "SONGS:" followed by the titles of the songs you suggested, separated by " | " (use the exact title text). Library: ' + songList;
+  const excludeClause = medleyExcluded.length ? (' Do not suggest these songs — we already used them earlier in this session: ' + medleyExcluded.join(', ') + '.') : '';
+  const promptText = 'Suggest 2-3 songs that pair well with "' + q + '" as a medley or natural flow for our bilingual (EN/ES) Apostolic worship service. Prefer songs from our library below, but you may also suggest well-known Christian worship songs not in our library if they fit better. Important: our church holds Apostolic (Oneness) theology, so do not suggest songs with explicitly Trinitarian language (e.g. addressing God as three distinct persons, "Father, Son, and Holy Spirit" as three, etc.) — songs should focus on Jesus\' name and be otherwise doctrinally neutral. Keep formatting as plain text only — no asterisks or markdown. Only explain where to transition and how — no extra commentary.' + excludeClause + ' After your explanation, end with one final line starting exactly with "SONGS:" followed by the titles of the songs you suggested, separated by " | " (use the exact title text). Library: ' + songList;
   el.innerHTML = '<div style="background:#e6f1fb;border-radius:8px;padding:12px 14px;font-family:system-ui,sans-serif;font-size:13px;color:#0c447c"><span class="spinner"></span>Loading Suggestions…</div>';
   try{
     const text = await callClaude(promptText, 1500);
@@ -633,8 +659,15 @@ async function getAISuggestions(){
       lastMedleySongs = sm[1].split('|').map(s=>s.trim()).filter(Boolean);
       displayText = text.slice(0, sm.index).trim();
     }
-    const addBtn = lastMedleySongs.length ? '<button style="margin-top:10px;font-size:12px;padding:6px 14px;cursor:pointer" onclick="addMedleySuggestionToSetlist()">+ Add to setlist</button>' : '';
-    el.innerHTML = '<div style="background:#e6f1fb;border-radius:8px;padding:12px 14px;font-family:system-ui,sans-serif;font-size:13px;color:#1a1a1a;white-space:pre-wrap;line-height:1.6">' + escapeHtml(displayText) + '</div>' + addBtn;
+    if(!medleyExcluded.includes(q)) medleyExcluded.push(q);
+    lastMedleySongs.forEach(s => { if(!medleyExcluded.includes(s)) medleyExcluded.push(s); });
+    const addBtn = lastMedleySongs.length ? '<button style="font-size:12px;padding:6px 14px;cursor:pointer" onclick="addMedleySuggestionToSetlist()">+ Add to setlist</button>' : '';
+    const moreBtn = '<button style="font-size:12px;padding:6px 14px;cursor:pointer" onclick="moreMedleySuggestions()">More suggestions</button>';
+    const chips = lastMedleySongs.map((s,idx) => '<button style="font-size:12px;padding:5px 10px;cursor:pointer;border-radius:14px" onclick="continueMedleySuggestionByIndex(' + idx + ')">→ ' + escapeHtml(s) + '</button>').join(' ');
+    const chipsBlock = lastMedleySongs.length ? ('<div style="margin-top:10px;font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em">Continue the medley from</div><div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:6px">' + chips + '</div>') : '';
+    el.innerHTML = '<div style="background:#e6f1fb;border-radius:8px;padding:12px 14px;font-family:system-ui,sans-serif;font-size:13px;color:#1a1a1a;white-space:pre-wrap;line-height:1.6">' + escapeHtml(displayText) + '</div>'
+      + '<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;font-family:system-ui,sans-serif">' + addBtn + moreBtn + '</div>'
+      + chipsBlock;
   }catch(e){
     el.innerHTML = '<div style="background:var(--danger-bg);border-radius:8px;padding:12px 14px;font-family:system-ui,sans-serif;font-size:13px;color:var(--danger-text)">Couldn\'t reach Claude — ' + escapeHtml(e.message) + '</div>';
   }
@@ -829,13 +862,22 @@ function presentToggleDark(){
   presentDark = !presentDark;
   document.getElementById('present-overlay').classList.toggle('dark', presentDark);
 }
+const PRESENT_LABEL_RE = /^[A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ0-9 .,'\/-]{1,40}$/;
 function renderPresent(){
   const s = setlist[presentIdx];
   if(!s) return;
+  document.getElementById('present-badge').textContent = s.section || '';
   document.getElementById('present-title').textContent = s.title;
-  document.getElementById('present-sub').textContent = `${s.section} · ${presentIdx+1} / ${setlist.length}`;
+  document.getElementById('present-sub').textContent = `${presentIdx+1} / ${setlist.length}`;
   const body = document.getElementById('present-body');
-  body.textContent = s.lyrics && s.lyrics.trim() ? s.lyrics : '(No lyrics saved for this song.)';
+  const lyricsText = s.lyrics && s.lyrics.trim() ? s.lyrics : '(No lyrics saved for this song.)';
+  body.innerHTML = lyricsText.split('\n').map(line => {
+    const trimmed = line.trim();
+    if(trimmed && trimmed.length <= 40 && PRESENT_LABEL_RE.test(trimmed) && trimmed === trimmed.toUpperCase()){
+      return '<div class="present-label">' + escapeHtml(line) + '</div>';
+    }
+    return '<div>' + (trimmed ? escapeHtml(line) : '&nbsp;') + '</div>';
+  }).join('');
   body.style.fontSize = presentFontSize+'px';
   body.scrollTop = 0;
   document.getElementById('present-prev').disabled = presentIdx===0;
@@ -1208,10 +1250,18 @@ function previewSetlist(){
   if(!setlist.length){setStatus('Add songs first.','error');return;}
   const date=document.getElementById('svc-date').value;
   const title=document.getElementById('svc-title').value||'Worship Service';
-  const dateStr=date?new Date(date+'T12:00:00').toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'}):'';
-  let html=`<p style="font-weight:500;font-size:15px;margin-bottom:2px;font-family:system-ui,sans-serif">${title}</p>`;
-  if(dateStr) html+=`<p style="font-size:12px;color:var(--text2);margin-bottom:14px;font-family:system-ui,sans-serif">${dateStr}</p>`;
-  setlist.forEach(s=>{html+=`<div style="margin-bottom:12px">${getBadge(s.section)} <strong style="font-size:13px;font-family:system-ui,sans-serif">${s.title}</strong><div class="lyrics-prev">${(s.lyrics||'').substring(0,200)}${(s.lyrics||'').length>200?'…':''}</div></div>`;});
+  const dateStr=date?new Date(date+'T12:00:00').toLocaleDateString('en-US',{month:'numeric',day:'numeric',year:'2-digit'}):'';
+  const sectionOrder=['Praise/Avivamiento','Worship/Adoración','Offering/Ofrenda','Altar Call','Special','Extra'];
+  const grouped={};
+  setlist.forEach(s=>{ const sec=s.section||'Special'; (grouped[sec]=grouped[sec]||[]).push(s.title); });
+  const allSections=[...sectionOrder,...Object.keys(grouped).filter(sec=>!sectionOrder.includes(sec))].filter(sec=>grouped[sec]&&grouped[sec].length);
+  let html=`<div style="font-size:13px;color:#6b6b6b;font-family:system-ui,sans-serif;margin-bottom:6px">${dateStr}${dateStr&&title?' ':''}${title}</div>`;
+  allSections.forEach(sec=>{
+    html+=`<div style="font-size:26px;color:#3a6bb0;font-family:Georgia,'Times New Roman',serif;margin:20px 0 8px">${sec}</div>`;
+    html+=`<ul style="margin:0 0 4px;padding-left:22px;font-family:system-ui,sans-serif;font-size:15px;color:#1a1a1a;line-height:1.9">`;
+    grouped[sec].forEach(t=>{ html+=`<li>${t}</li>`; });
+    html+=`</ul>`;
+  });
   document.getElementById('preview-content').innerHTML=html;
   document.getElementById('preview-overlay').classList.add('open');
 }
