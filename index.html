@@ -922,24 +922,24 @@ function addMedleyByIndex(ri){
   var p = MEDLEYS[ri];
   if(!p){ setStatus('Medley not found.','error'); return; }
   if(!library || library.length === 0) library = MASTER_LIBRARY.slice();
+  var songs = p.songs.slice(); // copy array to avoid mutation issues
   var added = 0;
-  for(var k=0; k<p.songs.length; k++){
-    var title = p.songs[k];
+  for(var k=0; k<songs.length; k++){
+    var title = songs[k];
     var match = null;
-    for(var m=0; m<library.length; m++){
-      if(library[m].title.toLowerCase() === title.toLowerCase()){ match = library[m]; break; }
+    var lib = library; // local ref
+    for(var m=0; m<lib.length; m++){
+      if(lib[m].title.toLowerCase() === title.toLowerCase()){ match = lib[m]; break; }
     }
     if(!match){
       var partial = title.toLowerCase().split('/')[0].trim();
-      for(var m=0; m<library.length; m++){
-        if(library[m].title.toLowerCase().indexOf(partial) > -1){ match = library[m]; break; }
+      for(var m2=0; m2<lib.length; m2++){
+        if(lib[m2].title.toLowerCase().indexOf(partial) > -1){ match = lib[m2]; break; }
       }
     }
-    if(match) setlist.push(JSON.parse(JSON.stringify(match)));
-    else setlist.push({title:title,section:'Praise/Avivamiento',artist:'',language:'',lyrics:''});
+    setlist.push(match ? JSON.parse(JSON.stringify(match)) : {title:title,section:'Praise/Avivamiento',artist:'',language:'',lyrics:''});
     added++;
   }
-  renderSetlist();
   switchMain('setlist');
   setStatus('Added '+added+' songs to setlist.','success');
 }
@@ -1084,29 +1084,30 @@ async function deleteCustomMedley(ci){
   setStatus('Custom medley deleted.','info');
 }
 
-function addCustomMedleyToSetlist(ci){
-  loadCustomMedleys();
+async function addCustomMedleyToSetlist(ci){
+  await loadCustomMedleys();
   var p = customMedleys[ci];
   if(!p){ setStatus('Medley not found. (index '+ci+')','error'); return; }
   if(!library || library.length === 0) library = MASTER_LIBRARY.slice();
+  var songs = p.songs.slice();
+  var lib = library;
   var added = 0;
-  for(var k=0; k<p.songs.length; k++){
-    var title = p.songs[k];
+  for(var k=0; k<songs.length; k++){
+    var title = songs[k];
     var match = null;
-    for(var m=0; m<library.length; m++){
-      if(library[m].title.toLowerCase() === title.toLowerCase()){ match = library[m]; break; }
+    for(var m=0; m<lib.length; m++){
+      if(lib[m].title.toLowerCase() === title.toLowerCase()){ match = lib[m]; break; }
     }
     if(!match){
       var partial = title.toLowerCase().split('/')[0].trim();
-      for(var m=0; m<library.length; m++){
-        if(library[m].title.toLowerCase().indexOf(partial) > -1){ match = library[m]; break; }
+      for(var m2=0; m2<lib.length; m2++){
+        if(lib[m2].title.toLowerCase().indexOf(partial) > -1){ match = lib[m2]; break; }
       }
     }
     setlist.push(match ? JSON.parse(JSON.stringify(match)) : {title:title,section:'Praise/Avivamiento',artist:'',language:'',lyrics:''});
     added++;
   }
   switchMain('setlist');
-  renderSetlist();
   setStatus('Added '+added+' songs to setlist! ✓','success');
 }
 // ─────────────────────────────────────────────────────────────────────────────
