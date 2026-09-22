@@ -964,18 +964,23 @@ function renderBuilderSongPicker(){
   var filtered = src.filter(function(s){
     return !q || s.title.toLowerCase().indexOf(q) > -1;
   }).slice(0, 40);
-  var html = '';
+  var picker = document.getElementById('builder-song-picker');
+  picker.innerHTML = '';
+  if(!filtered.length){
+    picker.innerHTML = '<div style="padding:10px;font-size:13px;color:#9a9a9a;font-family:system-ui,sans-serif">No songs found.</div>';
+    return;
+  }
   filtered.forEach(function(s){
     var alreadyAdded = builderSongs.some(function(b){ return b.title === s.title; });
-    html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 10px;border-bottom:0.5px solid rgba(0,0,0,0.08);cursor:pointer" '
-      + 'onmouseover="this.style.background=\'#eeedfe\'" onmouseout="this.style.background=\'\'" '
-      + 'onclick="addBuilderSong('+JSON.stringify(s.title)+')">'
-      + '<span style="font-size:13px;font-family:system-ui,sans-serif;color:#1a1a1a">'+s.title+'</span>'
-      + (alreadyAdded ? '<span style="font-size:11px;color:#4a3fa0;font-family:system-ui,sans-serif">Added</span>' : '<span style="font-size:18px;color:#9a9a9a">+</span>')
-      + '</div>';
+    var row = document.createElement('div');
+    row.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:9px 10px;border-bottom:0.5px solid rgba(0,0,0,0.08);cursor:pointer;user-select:none';
+    row.innerHTML = '<span style="font-size:13px;font-family:system-ui,sans-serif;color:#1a1a1a">' + s.title + '</span>'
+      + (alreadyAdded ? '<span style="font-size:11px;color:#4a3fa0;font-family:system-ui,sans-serif">Added</span>' : '<span style="font-size:20px;color:#4a3fa0;font-weight:300;line-height:1">+</span>');
+    row.addEventListener('mouseover', function(){ this.style.background='#eeedfe'; });
+    row.addEventListener('mouseout', function(){ this.style.background=''; });
+    row.addEventListener('click', function(){ addBuilderSong(s.title); });
+    picker.appendChild(row);
   });
-  if(!html) html = '<div style="padding:10px;font-size:13px;color:#9a9a9a;font-family:system-ui,sans-serif">No songs found.</div>';
-  document.getElementById('builder-song-picker').innerHTML = html;
 }
 
 function addBuilderSong(title){
