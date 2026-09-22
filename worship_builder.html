@@ -1,0 +1,1580 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Worship Setlist Builder — Sandy Apostolic</title>
+</head>
+<body>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #ffffff; --bg2: #f7f6f3; --bg3: #f0efe9;
+    --text: #1a1a1a; --text2: #6b6b6b; --text3: #9a9a9a;
+    --border: rgba(0,0,0,0.1); --border2: rgba(0,0,0,0.18);
+    --accent: #4a3fa0;
+    --success-bg: #eaf3de; --success-text: #27500a;
+    --danger-bg: #fcebeb; --danger-text: #791f1f;
+    --info-bg: #e6f1fb; --info-text: #0c447c;
+    --radius: 8px; --radius-lg: 12px;
+  }
+  body { font-family: 'Georgia', 'Times New Roman', serif; background: #f0efe9; color: #1a1a1a; min-height: 100vh; }
+  .app { max-width: 700px; margin: 0 auto; padding: 1.5rem 1rem 4rem; }
+  .app-header { text-align: center; margin-bottom: 1.5rem; }
+  .app-header h1 { font-size: 21px; font-weight: normal; letter-spacing: -0.02em; }
+  .app-header p { font-size: 13px; color: #6b6b6b; margin-top: 4px; font-family: system-ui, sans-serif; }
+  .tabs { display: flex; background: #f7f6f3; border-radius: var(--radius); border: 0.5px solid var(--border); overflow: hidden; margin-bottom: 1.25rem; }
+  .tab { flex: 1; padding: 9px 4px; font-size: 13px; font-family: system-ui, sans-serif; border: none; background: transparent; color: #6b6b6b; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 5px; transition: all .15s; }
+  .tab.active { background: #ffffff; color: #1a1a1a; font-weight: 500; box-shadow: inset 0 0 0 0.5px var(--border2); border-radius: var(--radius); }
+  .card { background: #ffffff; border: 0.5px solid var(--border); border-radius: var(--radius-lg); padding: 1rem 1.25rem; margin-bottom: 1rem; }
+  label, .lbl { display: block; font-size: 11px; font-family: system-ui, sans-serif; color: #9a9a9a; text-transform: uppercase; letter-spacing: .07em; margin-bottom: 5px; }
+  input[type=text], input[type=date], select, textarea { width: 100%; padding: 8px 10px; border: 0.5px solid var(--border2); border-radius: var(--radius); font-size: 14px; font-family: system-ui, sans-serif; color: #1a1a1a; background: #ffffff; outline: none; transition: border-color .15s; }
+  input:focus, select:focus, textarea:focus { border-color: #4a3fa0; }
+  textarea { resize: vertical; line-height: 1.6; }
+  button { padding: 7px 14px; border: 0.5px solid var(--border2); border-radius: var(--radius); font-size: 13px; font-family: system-ui, sans-serif; background: #ffffff; color: #1a1a1a; cursor: pointer; transition: all .15s; display: inline-flex; align-items: center; gap: 5px; }
+  button:hover { background: #f7f6f3; }
+  button.primary { background: var(--accent); color: #fff; border-color: #4a3fa0; }
+  button.primary:hover { opacity: .9; }
+  .btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: .75rem; }
+  .badge { font-size: 11px; padding: 2px 8px; border-radius: var(--radius); white-space: nowrap; font-family: system-ui, sans-serif; }
+  .badge.praise { background: #eeedfe; color: #3c3489; }
+  .badge.worship { background: #e1f5ee; color: #085041; }
+  .badge.offering { background: #faeeda; color: #633806; }
+  .badge.altar { background: #faece7; color: #712b13; }
+  .badge.special { background: #f7f6f3; color: #6b6b6b; }
+  .song-row { display: flex; align-items: center; gap: 8px; padding: 10px 0; border-bottom: 0.5px solid var(--border); }
+  .song-row:last-child { border-bottom: none; }
+  .song-title { flex: 1; font-size: 14px; font-weight: 500; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: system-ui, sans-serif; color: #1a1a1a; }
+  .drag-handle { color: #9a9a9a; cursor: grab; font-size: 17px; }
+  .icon-btn { background: none; border: none; color: #9a9a9a; cursor: pointer; font-size: 17px; padding: 4px 5px; border-radius: 6px; }
+  .icon-btn:hover { background: #f7f6f3; color: #1a1a1a; }
+  .icon-btn.danger:hover { background: var(--danger-bg); color: var(--danger-text); }
+  .status { font-size: 13px; padding: 8px 12px; border-radius: var(--radius); margin-bottom: .75rem; display: none; font-family: system-ui, sans-serif; }
+  .status.info { background: var(--info-bg); color: var(--info-text); display: block; }
+  .status.success { background: var(--success-bg); color: var(--success-text); display: block; }
+  .status.error { background: var(--danger-bg); color: var(--danger-text); display: block; }
+  .spinner { display: inline-block; width: 13px; height: 13px; border: 2px solid var(--border2); border-top-color: #4a3fa0; border-radius: 50%; animation: spin .7s linear infinite; vertical-align: middle; margin-right: 5px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .lyrics-prev { background: #f7f6f3; border-radius: var(--radius); padding: 10px 12px; font-size: 12px; white-space: pre-wrap; max-height: 160px; overflow-y: auto; color: #6b6b6b; line-height: 1.6; margin-top: 6px; font-family: system-ui, sans-serif; }
+  .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px,1fr)); gap: 8px; margin-bottom: 1rem; }
+  .stat { background: #f7f6f3; border-radius: var(--radius); padding: .75rem 1rem; }
+  .stat-n { font-size: 22px; font-weight: 500; color: #1a1a1a; font-family: system-ui, sans-serif; }
+  .stat-l { font-size: 12px; color: #6b6b6b; margin-top: 2px; font-family: system-ui, sans-serif; }
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .field { margin-bottom: 10px; }
+  .overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 50; align-items: center; justify-content: center; padding: 1rem; }
+  .overlay.open { display: flex; }
+  .modal { background: #ffffff; border-radius: var(--radius-lg); border: 0.5px solid var(--border2); padding: 1.5rem; width: 560px; max-width: 100%; max-height: 85vh; overflow-y: auto; }
+  .modal h3 { font-size: 17px; font-weight: normal; margin-bottom: 1rem; }
+  .empty { padding: 1.5rem 0; text-align: center; font-size: 13px; color: #9a9a9a; font-family: system-ui, sans-serif; }
+  .search-row { display: flex; gap: 8px; margin-bottom: 1rem; }
+  .drive-row { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 0.5px solid var(--border); font-size: 13px; font-family: system-ui, sans-serif; }
+  .drive-row:last-child { border-bottom: none; }
+  .section-divider { font-size: 11px; color: #9a9a9a; text-transform: uppercase; letter-spacing: .07em; padding: 8px 0 4px; margin-top: 4px; font-family: system-ui, sans-serif; }
+  option { color: #1a1a1a; background: #ffffff; font-family: system-ui, sans-serif; font-size: 14px; }
+  datalist { color: #1a1a1a; }
+</style>
+</head>
+
+<div class="app">
+  <div class="app-header">
+    <h1>Worship Setlist Builder</h1>
+    <p>Sandy Apostolic Church &nbsp;·&nbsp; Search Drive · Build setlists · Manage library</p>
+  </div>
+
+  <div class="tabs" id="main-tabs">
+    <button class="tab active" onclick="switchMain('setlist')">Setlist</button>
+    <button class="tab" onclick="switchMain('library')">Library</button>
+    <button class="tab" onclick="switchMain('medley')">♪ Medley</button>
+    <button class="tab" onclick="switchMain('events')">Events</button>
+    <button class="tab" onclick="switchMain('add')">+ Add</button>
+  </div>
+
+  <div id="status" class="status"></div>
+
+  <!-- SETLIST -->
+  <div id="pane-setlist">
+    <div class="card">
+      <div class="two-col" style="margin-bottom:10px">
+        <div class="field"><label>Service date</label><input type="date" id="svc-date" /></div>
+        <div class="field"><label>Title</label><input type="text" id="svc-title" placeholder="e.g. Sunday Service" /></div>
+      </div>
+      <div id="setlist-rows"><div class="empty">No songs yet — pick from library or search Drive</div></div>
+    </div>
+    <div class="btn-row">
+      <button onclick="switchMain('library')">Pick from library</button>
+      <button onclick="openDriveModal()">Search Drive</button>
+      <button onclick="previewSetlist()">Preview</button>
+      <button class="primary" onclick="copySetlist()">Copy setlist</button>
+      <button onclick="clearSetlist()" style="color:#791f1f">Clear</button>
+    </div>
+  </div>
+
+  <!-- LIBRARY -->
+  <div id="pane-library" style="display:none">
+    <div class="stat-grid" id="lib-stats"></div>
+    <div class="search-row">
+      <input type="text" id="lib-search" placeholder="Search songs, lyrics, artist…" oninput="renderLibrary()" style="flex:1" />
+      <select id="lib-filter" onchange="renderLibrary()" style="width:auto">
+        <option value="">All sections</option>
+        <option>Praise/Avivamiento</option>
+        <option>Worship/Adoración</option>
+        <option>Offering/Ofrenda</option>
+        <option>Altar Call</option>
+        <option>Special</option>
+      <option>Extra</option>
+      </select>
+    </div>
+    <div class="card" style="padding:0 1.25rem"><div id="lib-rows"></div></div>
+    <div class="btn-row">
+      <button onclick="backupToDrive()">Back up to Drive</button>
+      <button onclick="exportJSON()">Download JSON</button>
+      <button onclick="resetLibrary()" style="color:#791f1f">Reset library</button>
+    </div>
+  </div>
+
+  <!-- MEDLEYS -->
+  <div id="pane-medley" style="display:none">
+    <div class="card">
+      <div style="font-size:13px;color:var(--text2);font-family:system-ui,sans-serif;margin-bottom:1rem;line-height:1.6">
+        These medley are based on how songs have actually been used together in your past setlists — medleys, back-to-back flows, and song switches documented in your Drive docs. You can also get AI suggestions for any song.
+      </div>
+      <!-- Search for suggestions -->
+      <label>Get AI suggestions for a song</label>
+      <div class="search-row" style="margin-bottom:0">
+        <input type="text" id="medley-search" placeholder="Type a song name…" style="flex:1;color:#1a1a1a;background:#fff" list="medley-datalist" onkeydown="if(event.key==='Enter')getAISuggestions()" />
+        <datalist id="medley-datalist"></datalist>
+        <button onclick="getAISuggestions()">Suggest</button>
+      </div>
+      <div id="ai-suggestions" style="margin-top:10px;font-size:13px;color:var(--text3);font-family:system-ui,sans-serif"></div>
+    </div>
+
+    <!-- Custom Medley Builder -->
+    <div class="card" id="medley-builder-card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div style="font-size:11px;color:#9a9a9a;text-transform:uppercase;letter-spacing:.07em;font-family:system-ui,sans-serif">Create New Medley</div>
+        <button id="medley-builder-toggle" onclick="toggleMedleyBuilder()" style="font-size:12px;padding:4px 10px">+ New</button>
+      </div>
+      <div id="medley-builder-form" style="display:none">
+        <label>Medley name</label>
+        <input type="text" id="new-medley-name" placeholder="e.g. Opening Praise Flow" style="margin-bottom:10px" />
+        <label>Add songs (search and click to add)</label>
+        <div class="search-row" style="margin-bottom:6px">
+          <input type="text" id="builder-song-search" placeholder="Search library…" oninput="renderBuilderSongPicker()" style="flex:1;color:#1a1a1a;background:#fff" />
+        </div>
+        <div id="builder-song-picker" style="max-height:180px;overflow-y:auto;border:0.5px solid rgba(0,0,0,0.12);border-radius:8px;margin-bottom:10px;background:#f7f6f3"></div>
+        <label>Songs in this medley (drag to reorder)</label>
+        <div id="builder-selected-songs" style="min-height:40px;border:0.5px solid rgba(0,0,0,0.12);border-radius:8px;margin-bottom:10px;background:#fff;padding:6px 10px;font-size:13px;font-family:system-ui,sans-serif;color:#9a9a9a">
+          <span id="builder-no-songs">No songs selected yet — search and click above.</span>
+        </div>
+        <label>Note / transition tip (optional)</label>
+        <input type="text" id="new-medley-note" placeholder="e.g. Key of G throughout, smooth transition" style="margin-bottom:12px" />
+        <div class="btn-row">
+          <button class="primary" onclick="saveCustomMedley()">Save Medley</button>
+          <button onclick="cancelMedleyBuilder()">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Historical medley from your docs -->
+    <div class="card" style="padding:0 1.25rem">
+      <div style="padding:10px 0 6px;font-size:11px;color:#9a9a9a;text-transform:uppercase;letter-spacing:.07em;font-family:system-ui,sans-serif">Previous Medley's From Setlist</div>
+      <div id="medley-list"></div>
+    </div>
+  </div>
+
+  <!-- EVENTS -->
+  <div id="pane-events" style="display:none">
+    <div class="card">
+      <div style="font-size:13px;color:var(--text2);font-family:system-ui,sans-serif;margin-bottom:1rem;line-height:1.6">
+        Select an event and we'll suggest songs from your library that fit the occasion — plus you can get AI-powered suggestions for a custom setlist.
+      </div>
+      <label>Select event</label>
+      <select id="event-select" onchange="renderEventSuggestions()" style="margin-bottom:1rem">
+        <option value="">— Choose an event —</option>
+        <option value="marriage">Marriage Conference</option>
+        <option value="friends">Friend's Day</option>
+        <option value="kids">Kid's Day</option>
+        <option value="mothers">Mother's Day</option>
+        <option value="fathers">Father's Day</option>
+        <option value="youth">Youth Day</option>
+        <option value="baptism">Baptism Day</option>
+        <option value="florAzul">Flor Azul — Missionary Service</option>
+        <option value="preciosa">Preciosa Semilla — Missionary Service</option>
+        <option value="alcanzando">Alcanzando América — Missionary Service</option>
+        <option value="offering">Offering Songs</option>
+        <option value="thanksgiving">Thanksgiving Day</option>
+        <option value="newYear">New Year Celebration</option>
+        <option value="pastor">Día del Pastor</option>
+        <option value="esperanza">Abrazando Esperanza</option>
+        <option value="aceite">Aceite de Las Viudas</option>
+      </select>
+      <div id="event-description" style="font-size:13px;color:var(--text2);font-family:system-ui,sans-serif;padding:8px 12px;background:var(--bg2);border-radius:var(--radius);margin-bottom:1rem;display:none;line-height:1.6"></div>
+    </div>
+
+    <div id="event-suggestions-wrap" style="display:none">
+      <div class="card" style="padding:0 1.25rem">
+        <div style="padding:10px 0 6px;font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;font-family:system-ui,sans-serif">Suggested songs from your library</div>
+        <div id="event-song-list"></div>
+      </div>
+      <div class="card">
+        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;font-family:system-ui,sans-serif;margin-bottom:8px">AI — Build a full setlist for this event</div>
+        <p style="font-size:13px;color:var(--text2);font-family:system-ui,sans-serif;margin-bottom:10px">Get a suggested order with section breakdown tailored to this occasion.</p>
+        <button onclick="getEventSetlist()">Build event setlist</button>
+        <div id="event-ai-result" style="margin-top:12px;font-size:13px;font-family:system-ui,sans-serif;line-height:1.7"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ADD SONG -->
+  <div id="pane-add" style="display:none">
+    <div class="card">
+      <label>Search your Google Drive</label>
+      <p style="font-size:13px;color:var(--text2);margin-bottom:10px;font-family:system-ui,sans-serif">Find existing lyrics docs from shared setlists.</p>
+      <div class="search-row">
+        <input type="text" id="add-drive-q" placeholder="Song name or setlist date…" onkeydown="if(event.key==='Enter')addTabSearch()" style="flex:1" />
+        <button onclick="addTabSearch()">🔍 Search</button>
+      </div>
+      <div id="add-drive-results" style="font-size:13px;color:var(--text3);font-family:system-ui,sans-serif">Results will appear here.</div>
+    </div>
+    <div class="card">
+      <label>Add manually</label>
+      <div class="two-col">
+        <div class="field"><label>Song title</label><input type="text" id="new-title" placeholder="e.g. Oceans" /></div>
+        <div class="field"><label>Section</label>
+          <select id="new-section">
+            <option>Praise/Avivamiento</option><option>Worship/Adoración</option>
+            <option>Offering/Ofrenda</option><option>Altar Call</option><option>Special</option>
+          <option>Extra</option>
+          </select>
+        </div>
+      </div>
+      <div class="two-col">
+        <div class="field"><label>Artist</label><input type="text" id="new-artist" placeholder="e.g. Hillsong" /></div>
+        <div class="field"><label>Language</label>
+          <select id="new-lang">
+            <option>Bilingual (EN/ES)</option><option>English only</option><option>Spanish only</option>
+          </select>
+        </div>
+      </div>
+      <div class="field"><label>Lyrics</label><textarea id="new-lyrics" rows="7" placeholder="Paste lyrics here…"></textarea></div>
+      <div class="btn-row">
+        <button onclick="formatLyrics()">✨ Auto-format with AI</button>
+        <button class="primary" onclick="saveNewSong()">Save Save to library</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- DRIVE MODAL -->
+<div class="overlay" id="drive-overlay">
+  <div class="modal">
+    <h3>🔍 Search Google Drive</h3>
+    <div class="search-row">
+      <input type="text" id="modal-drive-q" placeholder="Song name, setlist date…" onkeydown="if(event.key==='Enter')modalDriveSearch()" style="flex:1" />
+      <button onclick="modalDriveSearch()">Search</button>
+    </div>
+    <div style="margin-bottom:10px;display:flex;align-items:center;gap:8px">
+      <select id="modal-section" style="width:auto">
+        <option>Praise/Avivamiento</option><option>Worship/Adoración</option>
+        <option>Offering/Ofrenda</option><option>Altar Call</option><option>Special</option>
+      <option>Extra</option>
+      </select>
+      <span style="font-size:12px;color:var(--text3);font-family:system-ui,sans-serif">Section to assign</span>
+    </div>
+    <div id="modal-drive-results" style="font-size:13px;color:var(--text3);font-family:system-ui,sans-serif">Enter a song name and search.</div>
+    <div class="btn-row"><button onclick="closeDriveModal()">Close</button></div>
+  </div>
+</div>
+
+<!-- VIEW MODAL -->
+<div class="overlay" id="view-overlay">
+  <div class="modal">
+    <h3 id="view-title-el"></h3>
+    <div id="view-meta" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px"></div>
+    <div class="lyrics-prev" id="view-lyrics-el" style="max-height:300px"></div>
+    <div class="btn-row">
+      <button class="primary" onclick="addToSetlistFromView()">+ Add to setlist</button>
+      <button onclick="openEdit(viewIdx)">Edit Edit</button>
+      <button onclick="closeView()">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- EDIT MODAL -->
+<div class="overlay" id="edit-overlay">
+  <div class="modal">
+    <h3>Edit song</h3>
+    <div class="two-col">
+      <div class="field"><label>Title</label><input type="text" id="edit-title" /></div>
+      <div class="field"><label>Section</label>
+        <select id="edit-section">
+          <option>Praise/Avivamiento</option><option>Worship/Adoración</option>
+          <option>Offering/Ofrenda</option><option>Altar Call</option><option>Special</option>
+        </select>
+      </div>
+    </div>
+    <div class="two-col">
+      <div class="field"><label>Artist</label><input type="text" id="edit-artist" /></div>
+      <div class="field"><label>Language</label>
+        <select id="edit-lang">
+          <option>Bilingual (EN/ES)</option><option>English only</option><option>Spanish only</option>
+        </select>
+      </div>
+    </div>
+    <div class="field"><label>Lyrics</label><textarea id="edit-lyrics" rows="8"></textarea></div>
+    <div class="btn-row">
+      <button class="primary" onclick="saveEdit()">Save changes</button>
+      <button onclick="closeEdit()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- PREVIEW MODAL -->
+<div class="overlay" id="preview-overlay">
+  <div class="modal">
+    <h3>Setlist preview</h3>
+    <div id="preview-content"></div>
+    <div class="btn-row">
+      <button class="primary" onclick="copySetlist()">Copy setlist</button>
+      <button onclick="document.getElementById('preview-overlay').classList.remove('open')">Close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const BADGE_CLASS = {'Praise/Avivamiento':'praise','Worship/Adoración':'worship','Offering/Ofrenda':'offering','Altar Call':'altar','Special':'special','Extra':'special'};
+
+// ── MASTER LIBRARY FROM YOUR DRIVE DOCS ──────────────────────────────────────
+const MASTER_LIBRARY = [
+  // ── PRAISE / AVIVAMIENTO ──
+  {title:"Holy Ghost",section:"Praise/Avivamiento",artist:"",language:"Bilingual (EN/ES)",lyrics:`VERSO 1\nAceite está fluyendo\nEs el Principe de Paz\nSentimos hoy victoria\nEs el Espíritu de Dios\n\nEs descanso que refresca\nEs gozo celestial\nEl regreso de Pentecostés\nHa Ilegado a este lugar\n\nCORO\nQue caiga sobre mi\nQue caiga sobre mi\nQue tú espíritu y fuego\nCaiga sobre mi\n\nQue caiga sobre mi\nQue caiga sobre mi\nPentecostés y avivamiento\nCaiga sobre mi\n\nVERSE 2\nA breakthrough is coming\nLet's raise up a shout\nIt's that upper room Spirit\nThat the King is pouring out\n\nIt's fire in my bones\nIt's healing to my soul\nI feel it all over me right now\nI'm surrendering control\n\nCHORUS\nLet it fall on me\nLet it fall on me\nLet the Holy Ghost and fire\nFall on me\n\nLet it fall on me\nLet it fall on me\nLet a Pentecost revival\nFall on me\n\nPUENTE\n//// Renuévame con lenguas\nDerrama vino nuevo\nBautizame en tu fuego\nMi tiempo es mi tiempo es ////\n\nCORO 2\nLo siento en mis manos\nLo siento en mis pies\nQue tú espíritu y fuego\nEsta sobre mi\n\nBRIDGE\n//// Renew me with new tongues\nRevive me with new wine\nBaptize me with fresh fire\nThis is my time ////\n\nCHORUS 2\nI can feel it in my hands\nI can feel it in my feet\nThe Holy Ghost and fire\nIs all over me\n\nTAG\nEspíritu ven sobre mi\nEspíritu ven sobre mi\nEspíritu ven sobre mi hoy\nHoly Ghost, fall on me\nHoly Ghost, fall on me\nHoly Ghost, fall on me now`},
+  {title:"Can't Stop Praising His Name",section:"Praise/Avivamiento",artist:"",language:"Bilingual (EN/ES)",lyrics:`CHORUS\nCan't stop praising His name,\nI just can't stop praising His name,\nI just can't stop praising His name, Jesus\n\nBRIDGE\nLift up your voice and sing for joy\nClap your hands make a joyful noise\nBlow the trumpet and shout\nWe'll praise him for the victory\nThe weapons we use are not bombs and guns\nWorship is the way that the battle is won\nThis is the way that we fight\nWe'll praise Him for the victory\n\nVERSE 1\nAnd every knee shall bow\nAnd every tongue confess\nThat Jesus Christ is Lord Forever\nHe is the alpha And the omega\nIt's Jesus Christ The Lord forever\n\nCORO\nNo, no puedo parar de alabarte\nNo, no puedo parar de alabarte\nNo, no puedo parar de alabarte, Cristo\n\nVERSO 1\nToda rodilla, se doblará ante el\nJesucristo Dios por siempre\nY toda lengua confesará ante el\nEs Jesucristo Dios por siempre`},
+  {title:"But God / Más Dios",section:"Praise/Avivamiento",artist:"",language:"Bilingual (EN/ES)",lyrics:`VERSE\n//The Devil Thought He Had Me,\nHe Thought I Was Dead.\nHe Thought That I Would Give Up\nAnd Never Dance Again//\n\nVERSO\n//El Pensó Vencer,\nQue Muerto Estaba Ya\nPensó Que Nunca Más Yo Volvería A Danzar//\n\nTAG\nMás Dios\nBut God!\n\nCHORUS\nShouldn't Even Be Here\nShouldn't Even Be Here\nShouldn't Even Be Here\n\nCORO\nSoy Testimonio\nSoy Testimonio\nSoy Testimonio`},
+  {title:"Sera Llena La Tierra",section:"Praise/Avivamiento",artist:"",language:"Spanish only",lyrics:`VERSO\nAlza tus ojos y mira\nLa cosecha está lista\nEl tiempo ha llegado\nLa mies está madura\n\nEsfuérzate y sé valiente\nLevántate y predica\nA todas las naciones\nQue cristo es la vida\n\nCORO\n//Y será llena la tierra de su gloria\nSe cubrirá como las aguas cubren la mar//\n\nPUENTE\nNo, no hay otro nombre\ndado a los hombres\nJesucristo es el Señor`},
+  {title:"Levantate Señor",section:"Praise/Avivamiento",artist:"",language:"Spanish only",lyrics:`VERSO\n// Levántate, levántate, Señor\nLevántate, levántate, Señor //\n\nPRECORO\nHuyen Delante de Ti\nTus enemigos\nSe Dispersen delante Ti\nTodos aquellos que aborrecen\ntu presencia\n\nCORO\nTu presencia reinará\nSobre todo imperio\nTu presencia reinará\nGobernará sobre todo principado\n\nPUENTE\nEspiritu de temor, huye!\nEspíritu de maldad, huye!\nEspiritu de rencor, huye!\nEspiritu de división, huye!\nEspíritu de enfermedad, huye!\nEspiritu de rebelión, huye!\nEspíritu inmoral, huye!\nEspiritu de oscuridaaad huye!`},
+  {title:"Yo Celebraré",section:"Praise/Avivamiento",artist:"",language:"Spanish only",lyrics:`//Aleluya, Aleluya\nAleluya, Aleluya\nAlelu, Aleluya//\n\nCORO\n//Yo Le Alabaré\nCantaré Cántico Nuevo//\n\n//Yo Celebraré\nCantaré Al Señor\nCantaré Cántico Nuevo//`},
+  {title:"Hosanna Al Altísimo",section:"Praise/Avivamiento",artist:"",language:"Spanish only",lyrics:`VERSO\n//Grande Es El Señor\nCreador Del Universo\nCanta Y Danza Al Rey Que Viene Pronto\nDe Felicidad\nEl Corazón Nos Llena\nGrande Es El Señor//\n\nCORO\n//Oh Oh Oh Hosanna Al Altísimo\nOh Oh Oh Hosanna Al Altísimo\nOh Oh Oh Hosanna Al Altísimo\nGrande Es El Señor//`},
+  {title:"Cantaré Al Señor Por Siempre",section:"Praise/Avivamiento",artist:"",language:"Spanish only",lyrics:`VERSO\n//Cantaré Al Señor Por Siempre\nSu Diestra Es Todo Poder//\n\nCORO\n//Echó A La Mar\nQuien Los Perseguía\nJinete Y Caballo\nEchó A La Mar//\n\nEchó A La Mar\nLos Carros Del Faraón, Hey, Hey\n\nVERSO 2\n// Mi padre es Dios y yo le exalto\nMi padre es Dios y le exaltaré //`},
+  {title:"Eres Mi Amigo Fiel / Friend of God",section:"Praise/Avivamiento",artist:"",language:"Bilingual (EN/ES)",lyrics:`VERSE\n// Who am I that You are mindful of me?\nThat You hear me when I call\nIs it true that You are thinking of me?\nHow You love me, It's amazing //\n\nCHORUS\n// I am a friend of God\nI am a friend of God\nI am a friend of God\nHe calls me friend //\n\nVERSO\n// ¿Quién soy yo para que en mí Tú pienses\nY que escuches, mi clamor?\nY es verdad lo que Tú hoy me dices\nQue me amas, Me asombra //\n\nCORO\n// Eres mi amigo fiel, eres mi amigo fiel\nEres mi amigo fiel, tu amigo soy //\n\nPUENTE\n//// Majestuoso, Poderoso\nTu amigo soy ////\n// God Almighty\nLord of Glory\nYou have called me friend //`},
+  {title:"Vamos A Cantar",section:"Praise/Avivamiento",artist:"",language:"Bilingual (EN/ES)",lyrics:`CORO\nVamos a cantar\nCon la música del cielo\nVamos a cantar\nAlegres porque escuchas cuando\nCantamos para exaltar tu nombre\n\nVERSO\nAmamos todo de ti\nCielo y tierra te adoran\nLos reinos se rinden\nSeñor Jesús, Tú eres por quien\nVivimos hoy\n\nCHORUS\nWe will Sing, sing, sing\nAnd make music with the heavens\nWe will sing, sing, sing\nGrateful that You hear us\nWhen we shout Your praise\nLift high the name of Jesus`},
+
+  // ── WORSHIP / ADORACIÓN ──
+  {title:"Mighty Name of Jesus",section:"Worship/Adoración",artist:"Hope Darst",language:"English only",lyrics:`VERSE 1\nI pray into the atmosphere\nSpirit of God You're here\nYou have, all authority\nI pray over my heart and mind\nI am healed by Your stripes\nYour blood, declares that I am free\n\nCHORUS 1\nIn the mighty name of Jesus, I pray\nCalling on the power of heaven, I proclaim\nEvery weapon formed against me, must break\nIn the mighty name of Jesus\n\nVERSE 2\nI draw a permanent boundary line\nThe enemy has no rights\nTo come, near my family\nNo scheme could ever undo God's plans\nNo matter the circumstance\nThe cross, has sealed my destiny\n\nCHORUS 2\nIn the mighty name of Jesus, I know\nAll the power of fear and darkness, must go\n'Cause every key to every victory, I hold\nIn the mighty name of Jesus\n\nBRIDGE\nI will not fear, I will not fear\nWhen the enemy comes near\nOn the doorframe of my life\nIs the blood of Jesus Christ\nI will not fear, I will not fear\nThere's an army of angels here\nI'm protected on all sides\nBy the blood of Jesus Christ`},
+  {title:"I Speak Jesus",section:"Worship/Adoración",artist:"",language:"Bilingual (EN/ES)",lyrics:`BRIDGE\nShout Jesus from the mountains\nJesus in the streets\nJesus in the darkness over every enemy\nJesus for my family\nI speak the holy name\nJesus\n\nCHORUS\nYour name is power\nYour name is healing\nYour name is life\nBreak every stronghold\nShine through the shadows\nBurn like a fire\n\nPUENTE\nClamó Jesús en los montes\nJesús en la ciudad\nJesús sobre todo, en la oscuridad\nJesús por mi familia\nyo hablo el santo nombre de Jesús\n\nCORO\nTu nombre es poder\nTu nombre sana\nEs libertad\nRompe cadenas\nLuz en tinieblas\nEs mi verdad`},
+  {title:"How Great Is Our God",section:"Worship/Adoración",artist:"Chris Tomlin",language:"Bilingual (EN/ES)",lyrics:`CHORUS\nHow great is our God, sing with me\nHow great is our God, and all will see\nHow great, how great is our God\n\nBRIDGE\nName above all names\nYou are worthy to be Praised\nAnd my soul will sing\nHow great is our God\n\nPUENTE\nY tu nombre, sobre todo es\nTú eres digno de alabar\nY mi ser dirá\nCuán grande es Dios\n\nCORO\nCuán grande es Dios\nCántale cuán grande es Dios\nY todos lo verán, cuán grande es Dios`},
+  {title:"Firm Foundation / Roca Firme",section:"Worship/Adoración",artist:"Cody Carnes / Katy Nichole",language:"Bilingual (EN/ES)",lyrics:`CHORUS\nChrist Is My Firm Foundation\nThe Rock On Which I Stand\nWhen Everything Around Me Is Shaking\nI've Never Been More Glad\nThat I Put My Faith In Jesus\n'cause He's Never Let Me Down\nHe's Faithful Through Generations\nSo Why Would He Fail Now?\nHe Won't\nHe Won't\n\nCORO\nCristo Es Mi Roca Firme\nAnclado Estoy En Él\nAunque Todo Esté Perdido\nFeliz Siempre Estaré\nPongo Mi Fe En Cristo\nÉl Nunca Fallará\nÉl No, El No\nÉl No Fallará, Él No Fallará\n\nBRIDGE\n//Rain Came And Wind Blew\nBut My House Was Built On You\nI'm Safe With You\nI'm Gonna Make It Through//\n\nPUENTE\n///Aun En Tormenta\nNada Me Moverá\nAnclado En Cristo\nSé Que Me Sostendrá///`},
+  {title:"Great Are You Lord / Grande Eres Dios",section:"Worship/Adoración",artist:"All Sons & Daughters",language:"Bilingual (EN/ES)",lyrics:`VERSE\nYou Give Life, You Are Love\nYou Bring Light To The Darkness\nYou Give Hope, You Restore\nEvery Heart That Is Broken\nGreat Are You, Lord\n\nCHORUS\nIt's Your Breath In Our Lungs\nSo We Pour Out Our Praise\nWe Pour Out Our Praise\nIt's Your Breath In Our Lungs\nSo We Pour Out Our Praise To You Only\n\nVERSO\nVida dás y amor\nTraes luz a tinieblas\nFuerzas das\nRestauras, todo corazón roto\nGrande eres Dios\n\nCORO\n//Es Tu aliento en mi ser\nPor eso alabaré, alabaré\nEs Tu aliento en mi ser\nPor eso alabaré\nPor siempre//\n\nBRIDGE\n//All The Earth Will Shout Your Praise\nOur Hearts Will Cry, These Bones Will Sing\nGreat Are You, Lord//\n\nPUENTE\n//La tierra fuerte alabará y estos huesos cantarán\nGrande eres Dios//`},
+  {title:"Reckless Love / Amor Sin Condición",section:"Worship/Adoración",artist:"Cory Asbury",language:"Bilingual (EN/ES)",lyrics:`VERSE 1\nBefore I Spoke A Word,\nYou Were Singing Over Me\nYou Have Been So, So Good To Me\nBefore I Took A Breath,\nYou Breathed Your Life In Me\nYou Have Been So, So Kind To Me\n\nCHORUS\nOh, The Overwhelming,\nNever-Ending, Reckless Love Of God\nOh, It Chases Me Down,\nFights 'til I'm Found, Leaves The Ninety-Nine\nI Couldn't Earn It, I Don't Deserve It\nStill You Give Yourself Away\n\nVERSO 1\nAntes De Hablar, Cantaste Sobre Mí\nTu Has Sido Bueno Para Mí\n\nCORO\nOh, Tu Amor Me Envuelve, Me Sostiene\nAmor Sin Condición\nMe Persigue Y Deja Las Noventa Y Nueve\nY Va Por Mí\n\nBRIDGE\nThere's No Shadow You Won't Light Up\nMountain You Won't Climb Up\nComing After Me\nThere's No Wall You Won't Kick Down\nLie You Won't Tear Down\nComing After Me\n\nPUENTE\n// No Hay Sombra Que No Alumbres\nMonte Que No Escales\nPara Encontrarme A Mí\nNo Hay Pared Que No Derrumbas\nMentira Que No Rompas\nPara Encontrarme A Mí //`},
+  {title:"Holy Forever",section:"Worship/Adoración",artist:"Brian Johnson / Bethel",language:"Bilingual (EN/ES)",lyrics:`VERSO 1\nMil Generaciones\nSe Postran A Adorarle\nLe Cantan Al Cordero Que Venció\n\nPRECORO\nTu Nombre Es Más Alto\nTu Nombre Es Más Grande\nTu Nombre Sobre Todo Es\n\nCORO\nCantan Ángeles, Santo\nClama La Creación, Santo\nExaltado Dios, Santo\nSanto Por Siempre\n\nCHORUS\nAnd The Angels Cry, Holy\nAll Creation Cries, Holy\nYou Are Lifted High, Holy\nHoly Forever\nHear Your People Sing, Holy\nTo The King Of Kings, Holy\nYou Will Always Be, Holy\nHoly Forever\n\nPRECHORUS\nYour Name Is The Highest\nYour Name Is The Greatest\nYour Name Stands Above Them All`},
+  {title:"Que Se Abra El Cielo / Let the Heavens Open",section:"Worship/Adoración",artist:"",language:"Bilingual (EN/ES)",lyrics:`VERSO 1\nDios, bienvenido a este lugar\nY en nuestro corazón\nVen y haz tu voluntad\nDios, te queremos conocer\nCon tu fuego abrazador\nVen y muévete otra vez\n\nPRECORO\nEspíritu avívanos\nTe anhelamos Dios\nBreathe on us\nSpirit come\nYou're our heart's desire\n\nCORO\nQue se abra el cielo\nMuévete Señor\nVenga aquí tu reino\nOh gran Dios\nLet the heavens open\nLet your kingdom move\nAll our faith and hope in\nOur great God\n\nPUENTE\nNo hay cielo cerrado, se abre\nTu reino se mueve aquí\nEn ti está nuestra esperanza\nOh gran Dios, oh gran Dios`},
+  {title:"Tu Presencia Es El Cielo / Your Presence is Heaven",section:"Worship/Adoración",artist:"",language:"Bilingual (EN/ES)",lyrics:`VERSO 1\n¿Quién como tú en la tierra oh Señor?\nHermoso e inigualable es tu valor\nY nada en este mundo saciará\nJesús tu copa no se secará\n\nWho is like You, Lord in all the earth?\nMatchless love and beauty, endless worth\nNothing in this world can satisfy\nJesus, You're the cup that won't run dry\n\nCORO\nTu presencia\nes el cielo para mí\nYour presence\nis heaven to me\n\nPUENTE\nOh Cristo, Oh Cristo\nTu presencia es el cielo para mí\nOh Jesus, oh Jesus\nYour presence is heaven to me`},
+
+  // ── OFFERING / OFRENDA ──
+  {title:"Washed / Lavado",section:"Offering/Ofrenda",artist:"Elevation Rhythm",language:"Bilingual (EN/ES)",lyrics:`CHORUS\nI've been washed in the water\nWashed in the blood\nI'm as good as new\nOh hallelujah\n\nI've been washed in the water\nWashed in the blood\nAll because of You\nOh hallelujah\n\nVERSE 1\nI'm clean\nSin was stained on me\nShame was running deep\nBut love was spilled on Calvary\nOh hallelujah\n\nCORO\nFui lavado en el río\nEl río de Dios\nAhora nuevo soy\nOh aleluya\n\nFui lavado en la sangre\nDe mi Señor\nAhora limpio soy\nOh aleluya\n\nBRIDGE\nYou took away my shame\nAnd You nailed it to the cross\nGot me running out the grave\nHallelujah here I come\n\nPUENTE\nMi vergüenza Él borró\nEn la cruz la derrotó\nDe la tumba me sacó\nAleluya vivo estoy\n\nTAG\nAleluya vivo estoy\nHallelujah here I come`},
+  {title:"Que Se Llene Tu Casa / Fill Your House",section:"Offering/Ofrenda",artist:"",language:"Bilingual (EN/ES)",lyrics:`VERSO\n// Sálvanos, restáuranos\nAvívanos, oh, Dios //\n\nCORO\n// Que se llene tu casa\ncon tu gloria\nLlena tu casa, oh, Dios //\n\nVERSE\n// Save us, Restore us\nRevive us, oh Lord, //\n\nCHORUS\nFill your house with your glory\nover-flowing,\nfill up your house, oh Lord`},
+  {title:"Glorious",section:"Offering/Ofrenda",artist:"BJ Putnam",language:"Bilingual (EN/ES)",lyrics:`CORO\nGlorioso Te cantamos\nGlorioso Lo gritamos\nCristo te alabaré Tu nombre exaltaré\nGlorioso\nNadie como tú\n\nVERSO 1\nTú reinarás\nPor siempre y siempre\nTú vivirás\nTu amor será\nPor siempre y siempre\nNo cambiarás\n\nCHORUS\nGlorious\nShout it out and\nGlorious\nMake it louder\nJesus we shout Your name\nJesus we make Your praise\nGlorious\nYou are glorious`},
+  {title:"Esta Noche Nos Vamos A Gozar",section:"Offering/Ofrenda",artist:"",language:"Spanish only",lyrics:`VERSE 1\n//Está Noche Nos Vamos A Gozar\nCon Jesús El Nazareno//\n\nVERSE 2\n//Y Invitamos A Él Espíritu Santo\nPara Que Este Culto Se Pongo Bueno//\n\nCHORUS\n///Si Si, Nos Vamos A Gozar///\n//Levanten Las Manos Todos\nCon Mucha Alegría Y Gozo//\n///Si Si, Nos Vamos A Gozar///\n\nBRIDGE\n//Y Si Le Alabas Te Gozas///\nY Si Le Alabas`},
+  {title:"Eres Todopoderoso",section:"Offering/Ofrenda",artist:"",language:"Spanish only",lyrics:`VERSO\nLa única razón de mi adoración eres tu mi Jesús\nMi único motivo para vivir eres tu mi señor\n\nMi única verdad está en ti\neres mi luz y mi salvación\nMi único amor eres tu Señor y por siempre te alabaré\n\nCORO\nEres todopoderoso eres grande y majestuoso\nEres fuerte, invencible y no hay nadie como Tú`},
+
+  // ── ALTAR CALL ──
+  {title:"Worthy / Digno",section:"Altar Call",artist:"",language:"Bilingual (EN/ES)",lyrics:`VERSE\nIt Was My Cross You Bore\nSo I Could Live In The Freedom You Died For\nAnd Now My Life Is Yours\nAnd I Will Sing Of Your Goodness Forevermore\n\nCHORUS\n// Worthy Is Your Name, Jesus\nYou Deserve The Praise\nWorthy Is Your Name //\n\nVERSO\nCargaste Tu Mi Cruz\nMi Libertad, Con Tu Vida Compraste\nY Ahora Tuyo Soy\nProclamare Tu Bondad Para Siempre\n\nCORO\n// Digno De Alabar, Cristo\nNombre Sin Igual,\nDigno De Alabar //\n\nBRIDGE\n//Be Exalted Now In The Heavens\nAs Your Glory Fills This Place\nYou Alone Deserve Our Praise\nYou're The Name Above All Names//\n\nPUENTE\n// Se Exaltado Hoy En Los Cielos\nVen Y Llena Este Lugar\nEres Digno De Alabar\nNo Hay Otro Nombre Igual //`},
+  {title:"Worthy of It All / Digno Eres Tú",section:"Altar Call",artist:"",language:"Bilingual (EN/ES)",lyrics:`BRIDGE\nDay And Night, Night And Day\nLet Incense Arise\nDay And Night, Night And Day\nLet Incense Arise\n\nCHORUS\nYou Are Worthy Of It All\nYou Are Worthy Of It All\nFor From You Are All Things\nAnd To You Are All Things\nYou Deserve The Glory\n\nVERSE\nAll The Saints And Angels\nThey Bow Before Your Throne\nAll The Elders Cast Their Crowns\nBefore The Lamb Of God And Sing\n\nPUENTE\n//// Día Y Noche\nSuba Incienso\nDelante De Ti ////\n\nCORO\n// Porque Digno Eres Tú\nPorque Digno Eres Tú\nTodo Fue Hecho Por Ti\nY Todo Es Para Ti\nTú Mereces Gloria //`},
+  {title:"No Longer Slaves / Ya No Soy Esclavo",section:"Altar Call",artist:"Bethel Music",language:"Bilingual (EN/ES)",lyrics:`VERSO 1\nYou unravel me with a melody\nYou surround me with a song\nOf deliverance from my enemies\n'Til all my fears are gone\n\nMe envuelves hoy con una canción\nMelodia de tu amor\nCantas libertad en mi adversidad\nHasta que huya el temor\n\nCORO\nI'm no longer a slave to fear\nFor I am a child of God\nYa no soy un esclavo del temor\nYo soy hijo de Dios\n\nPUENTE\nAbriste el mar para que yo camine\nTu amor ahogó todo el temor\nMe rescataste y yo cantaré\nYo soy hijo de Dios\n\nYou split the sea\nSo I could walk right through it\nMy fears are drowned in perfect love\nYou rescued me\nAnd I will stand and sing\nI am a child of God\n\nPUENTE 2\nYo solo sé que yo soy su hijo\nY El es mi padre y mi padre me ama\nI only know that I am His child\nAnd He is the Father\nAnd my Father loves me`},
+  {title:"Always On Time / Siempre A Tiempo",section:"Altar Call",artist:"",language:"Bilingual (EN/ES)",lyrics:`VERSE 1
+I Remember How You Provided
+How You Held Me Through The Night
+I Remember How You Sustained Me
+When You Stepped In To Save My Life
+
+VERSO 1
+Yo Recuerdo Como Llegaste
+En Medio De La Oscuridad
+Yo Recuerdo Me Abrazaste
+Y Me Viniste A Rescatar
+
+PRECORO
+De Yo Saber
+Lo Que Hoy Se
+Quieto Estaria
+Sabiendo Que Eres Fiel
+
+CORO
+Cristo
+Al Pasar Por Las Aguas
+Tu Nunca Me Soltaste
+Siempre A Tiempo Estas
+Cristo
+Al Pasar Por El Fuego
+Tu Nunca Me Dejaste
+Siempre A Tiempo Estas
+
+TAG
+Siempre A Tiempo, Siempre
+A Tiempo Estas
+Siempre A Tiempo, Siempre
+A Tiempo Estas
+
+VERSO 2
+I Remember How You Carried
+When I Couldn't Take A Step
+I Remember How You Loved Me
+When I Couldn't Love Myself
+
+PRECHORUS
+If I Knew Then
+What I Know Now
+I Would Be Still
+And Let You Work It Out
+
+CHORUS
+Jesus
+I Was Tossed In The Water
+But I Never Went Under
+You Were Always On Time
+Jesus
+When I Went Through The Fire
+You Were Right There Beside Me
+You Were Always On Time
+
+TAG
+// You Were Always, Always
+Always On Time
+You Were Always, Always
+Always On Time //
+
+INSTRUMENTAL
+
+BRIDGE
+// There's Never Been A Day
+Never Been A Minute
+Never Been A Moment
+That You Weren't In It
+There's Never Been A Time
+That You Didn't See Me Through, God
+So I Worship You //
+
+PUENTE
+// Ni Una Sola Vez
+Ni Un Solo Minuto
+Nunca Me Dejaste
+Ni Por Un Segundo
+No Hay Un Solo Dia
+Que Tu Llegaste Tarde
+Te Adorare //
+
+CORO
+Cristo
+Al Pasar Por Las Aguas
+Tu Nunca Me Soltaste
+Siempre A Tiempo Estas
+Cristo
+Al Pasar Por El Fuego
+Tu Nunca Me Dejaste
+Siempre A Tiempo Estas
+
+CHORUS
+Jesus
+I Was Tossed In The Water
+But I Never Went Under
+You Were Always On Time
+Jesus
+When I Went Through The Fire
+You Were Right There Beside Me
+You Were Always On Time
+
+TAG
+// You Were Always, Always
+Always On Time
+You Were Always, Always
+Always On Time //
+
+END SOFT — TRANSITION TO SAME GOD`},
+  {title:"Same God / El Mismo Dios",section:"Altar Call",artist:"",language:"Bilingual (EN/ES)",lyrics:`BRIDGE
+// You Heard Your Children Then,
+You Hear Your Children Now
+You Are The Same God,
+You Are The Same God
+You Answered Prayers Back Then
+And You Will Answer Now
+You Are The Same God,
+You Are The Same God //
+
+PUENTE 1
+// Nos Escuchaste Ayer
+Y Nos Escuchas Hoy
+Eres El Mismo
+Eres El Mismo
+Nos Respondiste Ayer
+Y Aun Respondes Hoy
+Eres El Mismo
+Eres El Mismo //
+
+PUENTE 2
+// Nos Proveiste Ayer
+Y Nos Provees Hoy
+Eres El Mismo
+Eres El Mismo //
+
+BRIDGE 2 — SWITCH BACK TO ALWAYS ON TIME
+// You Were Providing Then
+You Are Providing Now
+You Are The Same God
+You Are The Same God //
+
+— BACK TO ALWAYS ON TIME —
+
+BRIDGE
+// There's Never Been A Day
+Never Been A Minute
+Never Been A Moment
+That You Weren't In It
+There's Never Been A Time
+That You Didn't See Me Through, God
+So I Worship You //
+
+CHORUS
+Jesus
+I Was Tossed In The Water
+But I Never Went Under
+You Were Always On Time
+Jesus
+When I Went Through The Fire
+You Were Right There Beside Me
+You Were Always On Time
+
+TAG
+// You Were Always, Always
+Always On Time
+You Were Always, Always
+Always On Time //`},
+  {title:"Creo En Ti / I Believe",section:"Altar Call",artist:"",language:"Bilingual (EN/ES)",lyrics:`VERSO\nQuiero levantar a ti mis manos\nMaravilloso Jesús, milagroso Señor\n\nLlena este lugar con tu presencia\nY haz descender tu poder\na los que estamos aquí\n\nPRECHORUS\n// Creo en ti, Jesús\nY lo que haras en Mi //\nEn Mi, En Mi\n\nCORO\nRecibe Toda la Gloria\nRecibe Toda la honra\nPrecioso Señor Jesús\n\nCHORUS\nWe give you all of the glory\nwe give you all of the honor\namazing Almighty God`},
+  {title:"Way Maker / Milagroso",section:"Altar Call",artist:"Sinach",language:"Bilingual (EN/ES)",lyrics:`VERSO 1\n// Aquí estás, te vemos mover\nTe adoraré, Te adoraré\n\nAquí estás, obrando en mí\nTe adoraré, Te adoraré //\n\nCORO\nMilagroso, abres camino\nCumples promesas\nLuz en tinieblas\nMi Dios, así eres Tú\n\nCHORUS\nWay Maker Miracle Worker\nPromise Keeper\nLight in the darkness\nmy God that is who You are\n\nPUENTE\nAunque no pueda ver, estás obrando\nAunque no pueda ver, estás obrando\nSiempre estás, siempre estás obrando\n\nBRIDGE\nEven when I don't see it You're working\nEven when I don't feel it You're working\nYou never stop, You never stop working`},
+  {title:"El Espíritu De Dios / Spirit of the Lord",section:"Altar Call",artist:"",language:"Bilingual (EN/ES)",lyrics:`VERSO\nEl Espíritu de Dios está en este lugar\nEl Espíritu de Dios se mueve en este lugar\nEstá aquí para consolar\nEstá aquí para liberar\nEstá aquí para guiar,\nel Espíritu de Dios está aquí\n\nCORO\nMuévete en mí\nMuévete en mí\nToca mi mente, mi corazón\nLlena mi vida de tu amor\nMuévete en mí\nSanto Espíritu, muévete en mí\n\nCHORUS\nStir up in me\nStir up in me\nTransform my heart and renew my mind\nAnd fill my life with your great love\nStir up in me\nHoly Spirit, stir up in me`},
+  {title:"Beautiful Name / Majestuoso",section:"Altar Call",artist:"Hillsong",language:"Bilingual (EN/ES)",lyrics:`BRIDGE\nDeath could not hold You\nThe veil tore before You\nYou silence the boast of sin and grave\nThe heavens are roaring\nThe praise of Your glory\nFor You are raised to life again\n\nYou have no rival\nYou have no equal\nNow and forever God You reign\nYours is the kingdom\nYours is the glory\nYours is the Name above all names\n\nCHORUS\nWhat a powerful name it is\nWhat a powerful name it is\nThe name of Jesus Christ my King\nWhat a powerful name it is\nNothing compares to this\nWhat a powerful name it is\nThe name of Jesus\n\nPUENTE\nLa muerte venciste\nEl velo partiste\nLa tumba vacía ahora está\n\nCORO\nMajestuoso su nombre es\nMajestuoso su nombre es\nEl nombre de Jesús mi Rey`},
+  {title:"Dios Manda Lluvia",section:"Altar Call",artist:"",language:"Spanish only",lyrics:`VERSO\nDios, manda lluvia\nDerrama de tu Espíritu\nDesciende hoy tu fuego\nSana mis heridas\nRestáurame, Señor\n\nCORO\nManda la lluvia\nEl rocío de tu amor\nLlenando las vidas\nDe tu pueblo hoy, Señor\n\nManda la lluvia\nEl rocío de tu amor\nVisita hoy mi vida\nCámbiame, Señor`},
+  {title:"El Me Levantará",section:"Altar Call",artist:"",language:"Spanish only",lyrics:`// El me levantará, El me levantará\nEl me levantará, así dice el Señor //\n\nEl me levantará, El me levantará\nen sus manos me sostendrá\nEl me levantará\n\n// Me fortalecerá, me fortalecerá\nme fortalecerá, así dice el Señor//`},
+  {title:"En Totalidad",section:"Altar Call",artist:"",language:"Spanish only",lyrics:`VERSO\nEn totalidad a ti, rindo alma y corazón\nNo tengo nada más que dar\nTómalo mi buen señor\n\nCORO\nTómame en tus brazos Cristo\nToma mi vida en tus manos\nY haz de mí lo que tú quieras\nTómame aquí estoy`},
+  {title:"Esta Cayendo",section:"Altar Call",artist:"",language:"Bilingual (EN/ES)",lyrics:`VERSO\nAlgo está cayendo aquí\nEs tan fuerte sobre mí\nMis manos levantaré\nY su gloria tocaré\n\nCORO\nEstá cayendo su gloria sobre mí\nSanando heridas\nLevantando al caído\nSu gloria está aquí\n\nVERSE\nSomething's falling down on me,\nIt's so strong over me\nI will lift my hands to thee,\nand His glory I shall see\n\nCHORUS\nHis glory is falling\nFalling over me\nHe's healing the wounded\nHe's lifting the fallen\nHis glory is here`},
+  {title:"Fortaleza Divina",section:"Altar Call",artist:"",language:"Spanish only",lyrics:`VERSO\nFortaleza divina\nviene de mi Señor,\nfortaleza divina\nviene del Salvador\n\nCORO\nMe ayudas en mis pruebas y luchas;\nen las horas amargas me da consolación;\nTe doy gracias por esta fortaleza,\nque viniste a darme al morir en la cruz\n\nVERSO 2\nCuando solo me encuentro\nsin nadie junto a mí,\nÉl me da fortaleza\ny me ayuda a seguir`},
+  {title:"Deseo Eterno",section:"Altar Call",artist:"",language:"Spanish only",lyrics:`CORO\nEres mi deseo eterno\nNada me apasiona más que Tu\n\nVERSO\nLa vida eterna es conocerte más\nMe sumerjo en Tu realidad\nEres el Gran Yo Soy, incomparable Dios\nMi oxígeno y mi primer amor\n\nVERSO 2\nTu Palabra es más dulce que la miel\nTu amor es mejor que el vino\nTu eres mucho más\nque todo lo que probé\nTu presencia será siempre mi placer`},
+  {title:"Dios Está Aquí",section:"Altar Call",artist:"",language:"Spanish only",lyrics:`Dios está aquí\nTan cierto como el aire que respiro\nTan cierto como en la mañana se levanta el sol\nTan cierto que cuando le hablo, él me puede oír`},
+  {title:"Cristo Yo Te Amo",section:"Altar Call",artist:"",language:"Spanish only",lyrics:`VERSO\nCristo, yo te amo\nCristo, yo te amo\nNo hay nadie como Tú,\nJesús\n\nCORO\nY no sé dónde estuviera\nSi yo a ti no te tuviera\nSi no hubiera conocido\nAl Dios que me ama`},
+  {title:"Grande Es El Amor de Dios",section:"Altar Call",artist:"",language:"Spanish only",lyrics:`CORO\nNo hay amor que se pueda comparar\nAl amor de Dios\nTan sublime y sin igual\nY que llena mi alma\nDe dulce calma\n\nVERSO 1\nGrande es el amor de Dios\nQue mi vida, Él transformó\nY por ese amor de Dios\nSalvo soy, salvo soy\n\nVERSO 2\nNadie pudo amarme a mi\nNi entender lo que había en mi\nSolo por el amor de Dios\nSoy feliz soy feliz`},
+  {title:"Grande Es El Amor (Medley)",section:"Special",artist:"",language:"Spanish only",lyrics:`CORO\nNo hay amor que se pueda comparar\nAl amor de Dios\nTan sublime y sin igual\nY que llena mi alma\nDe dulce calma`},
+
+  // ── FROM 10/20/24 SETLIST ──
+  {title:"Nada Es Imposible / Nothing Is Impossible",section:"Praise/Avivamiento",artist:"",language:"Bilingual (EN/ES)",lyrics:`CORO\nPor ti todo lo puedo\nTodo es posible\nY la fuerza tu me das\nNada es imposible\n\nPor ti los ojos se abren\nCadenas son rotas\nY yo viviré por fe\n(Nada es imposible)\n\nVERSO\nNo viviré por lo que veo\nNo viviré por lo que siento\nYo se que aquí conmigo estás\nYo se que tu eres grande DIOS\n\nCHORUS\nThrough You, I can do anything,\nI can do all things,\nCause it's You who give me strength,\nNothing is impossible\n\nThrough You,\nBlind eyes are opened,\nStrongholds are broken,\nI am living by faith\nNothing is Impossible\n\nPUENTE\nCreo en ti, creo en ti\nCreo en ti, creo en ti CRISTO\n\nBRIDGE\nI believe, I believe\nI believe, I believe Jesus`},
+  {title:"Freedom Medley / Libre",section:"Praise/Avivamiento",artist:"",language:"Bilingual (EN/ES)",lyrics:`VERSE\nI wanna clap a little louder than before\nI wanna sing a little louder than before\nI wanna jump higher than before\nI wanna shout louder than before\n\nCHORUS\nFreedom Freedom\nFreedom Freedom\n\nVERSO\nQuiero aplaudir más fuerte para ti\nQuiero cantar más fuerte para ti\nQuiero saltar más alto para ti\nQuiero gritar más fuerte para ti\n\nCORO\nLibre Libre\nLibre Libre\n\nPUENTE\nNo hay cadenas,\nNi opresión,\nNi ataduras\nLibre soy, Si\n\nPUENTE 2\nAleluya, Aleluya, Aleluya, Aleluya\n\nBRIDGE\nNo more shackles,\nno more chains\nNo more bondage\nI am free, yeah\n\nBRIDGE 2\nHallelujah, Hallelujah, Hallelujah, Hallelujah\n\n-- SONG CHANGE --\nHe's alive (He's alive)\nHe's alive (He's alive)\nWith all power in His name!\n\nVivo esta (vivo esta)\nVivo esta (vivo esta)\nHay poder en su nombre`},
+  {title:"Dame De Beber",section:"Worship/Adoración",artist:"",language:"Spanish only",lyrics:`VERSO 1\nQuiero estar en tu presencia\nY poderte contemplar\nNecesito estar contigo\nNecesito adorar\n\nCORO\nDame de beber\nDe tu manantial\nDame de beber\nNecesito más`},
+  {title:"Digno (Eternamente Digno)",section:"Worship/Adoración",artist:"",language:"Spanish only",lyrics:`VERSO\nNo tengo nada para ofrecer\nNada que te pueda sorprender\nSolo un corazón, quebrantado\nUna y otra vez\n\nY no hay nada que me enamore más\nNada que me apasione más\nSolo tu presencia\nSolo tu mirada\nMe hace suspirar\n\nPRECORO\nMe inclino ante ti\nRey que perdona\nMultitud de errores\nMe inclino ante ti\n\nCORO\nDigno, eternamente digno\nImpresionante y digno\nSolo ante ti yo me inclino\n\nTú eres digno\nEternamente digno\nImpresionante y digno\nSolo ante ti yo me inclino`},
+  {title:"Haz Llover / Let It Rain",section:"Praise/Avivamiento",artist:"",language:"Bilingual (EN/ES)",lyrics:`VERSO\nCuando necesitamos lluvia\nA quién podemos ir,\n¿A quién podemos ir?\n\nPRECORO\nCreador de las alturas\nTu quién fuiste, es, y quien vendra\nTu pueblo clama a Ti\n\nCORO\n//Abre hoy los cielos, desciende\nDerrama de Tu gloria con poder\nSana nuestra tierra, haz llover,\nhaz llover//\n\nINTERLUDO\nQueremos verte Dios\nQueremos verte Dios\n\nCHORUS\n//Open up the heavens let it rain\nLet your glory fall on us today\nCome and fill our hearts lord let it rain, let it rain//\n\nBRIDGE\n/// See your glory, see your glory\nsee your glory, let it rain ///\n\nPUENTE\n/// Ver Tu gloria, ver Tu gloria\nVer Tu gloria, haz llover ///\n\n// Haz llover, haz llover\nAbre las puertas del cielo //\n// Let it rain, let it rain\nOpen the floodgates of heaven //`},
+  {title:"Hay Libertad / There Is Joy",section:"Offering/Ofrenda",artist:"",language:"Bilingual (EN/ES)",lyrics:`INTRO\nHoy puedo danzar con libertad\nPorque soy su hijo\nPorque soy su hijo\n\nVERSO 1\n// Podemos sentir tu gozo\nPodemos sentir tu río\nHay sanidad en las aguas\nQueremos danzar //\n\nCORO\nHay libertad en la casa de Dios\nHay libertad en la casa de Dios\nHay libertad\nHay libertad\n\nVERSE 1\n// There is a river flowing\na river of joy and laughter\nwe wanna swim in the waters\nwe wanna dance //\n\nCHORUS\nThere is joy in the house of the Lord\nthere is joy in the house of the Lord\nthere is joy,\nthere is joy\n\nPUENTE\nHay libertad en la casa\nHay libertad al danzar\n\nCORO 2\nPuedo danzar en la casa de Dios\nPuedo danzar en la casa de Dios\nPuedo danzar\nY disfrutar\n\n// Que somos libres\nSomos libres\nPor tu sangre\nLibre soy //`},
+  {title:"Hay Sanidad Aquí / Healing Is Here",section:"Altar Call",artist:"",language:"Bilingual (EN/ES)",lyrics:`VERSO 1\nHay sanidad aquí\nHay sanidad aquí\nHay sanidad aquí\nY la recibo\n\nHay sanidad aquí\nHay sanidad aquí\nHay sanidad aquí\nY yo lo creo\n\nCORO\nAlzo mis manos hacia al cielo\nAlzo mis ojos a mi defensor\nMiro hacia Ti, al Dios que sana\nConfio en Ti\n\nVERSE 1\nHealing is here\nhealing is here\nHealing is here\nand I receive it\n\nCHORUS\nI reach my hands to the heavens\nI lift my eyes where my help comes from\nI look to You my rock my healer\nI trust in You\n\nPUENTE\nLa enfermedad no puede quedarse\nTu amor perfecto quita el temor\nTú eres el Dios poderoso\nY es tu voluntad que sano este\n\nBRIDGE\nSickness can't stay any longer\nYour perfect love is casting out fear\nYou are the God of all power\nAnd it is Your will that my life is healed\n\nVERSO 2\nHay libertad aquí\nHay libertad aquí\nHay libertad aquí\nY la recibo`},
+  {title:"Yo Se Que Estás Aquí / Con Mi Fe",section:"Altar Call",artist:"",language:"Spanish only",lyrics:`CORO\nCon mi fe te alcanzaré\nCon mi fe te tocaré\nMi milagro recibiré\nY se que transformado yo seré\n\nVERSO 1\nYo se que estás aquí\nSiento tu caminar\nTe mueves entre el pueblo\nTrayendo sanidad`},
+  {title:"Dios Ha Sido Bueno / God Has Been Good",section:"Altar Call",artist:"",language:"Bilingual (EN/ES)",lyrics:`CORO\n// Dios ha sido bueno\nDios ha sido bueno\nDios ha sido bueno\nBueno es Dios //\n\n// God has been sooo good\nGod has been sooo good\nGod has been sooo good\nGod is good //`},
+  {title:"Devuélveme El Gozo",section:"Altar Call",artist:"",language:"Spanish only",lyrics:`VERSO\nEn medio del dolor\nEn medio de la aflicción\nMe das paz y me enseñas amor\nTodo lo que perdí\nLo restauras Señor en mi\nMe das las fuerzas para seguir\n\nCORO\nDevuélveme el gozo de tu salvación\nY tu espíritu noble me sustente\nTe necesito Dios sin ti no soy nada\nTe necesito Dios dame un nuevo corazón`},
+
+  // ── FROM 9/1/24 SETLIST ──
+  {title:"Cielos Abiertos / Open Heavens",section:"Worship/Adoración",artist:"",language:"Bilingual (EN/ES)",lyrics:`VERSO\nQue los cielos se abran aquí\nTu presencia irrumpa en mí\nMi sacrificio provoque\nQue el cielo se una a la tierra\n\nOh if only the heavens would part\nand your presence break forth in our lives\nI know that my sacrifice causes heaven and earth to be one\n\nCORO\nSe están rompiendo los cielos\nSu gloria está descendiendo\nUn hueco se abre en las nubes\nPodemos ver al Rey\n\nthe heavens are breaking open\nthe glory of god is descending\na port opens up of His glory\nnow we can see the King\n\nPUENTE\n//// Ángeles que suben,\nÁngeles que bajan ////\n// Angels are ascending\nAngels are descending //\n\nOh Señor, si rompieses los cielos\nPara ver tu presencia\nDescendiendo en nosotros`},
+  {title:"King of Glory / Rey De Gloria",section:"Worship/Adoración",artist:"",language:"Bilingual (EN/ES)",lyrics:`VERSO\nSi, El Mundo,\nSe arrodillara y dirá que eres Dios\nToda Creacion,\nSe arrodillará y dirá que eres Rey\n\nCORO\nRey De Gloria Llename\nQueremos contigo estar\nAnhelamos Contigo estar\nKing of Glory, fill this place\nWe just wanna be with You\nJust wanna be with You\n\nPUENTE\n// Cantaré Aleluya hasta que regreses\nDanzaré en tu presencia hasta que regreses //\n\nBRIDGE\n// So we'll sing Hallelujah\n'til You come again\nAnd we'll dance in Your presence\n'til You come again //`},
+  {title:"La Sunamita / Beloved",section:"Altar Call",artist:"",language:"Bilingual (EN/ES)",lyrics:`CORO\nMi amado\nMi amado\nYo soy La Sunamita que te dice\nVive aquí\n\nMi amado\nMi amado\nTodo lo que ves\nlo he preparado para ti\n\nPUENTE\nNo importa todo lo que cueste\nTu presencia vale mucho más\nSolo quiero estar contigo\nUna y otra, y otra, y otra vez\n\nBRIDGE\nI don't care about how much it costs me\nHaving you is worth my everything\nI just want your presence with me\nTime and time and time and time again\n\nCHORUS\nBeloved\nBeloved\nCome and make your home in me\nYou're welcomed in this room`},
+  {title:"Tuyo Es El Reino / Yours Is The Kingdom",section:"Altar Call",artist:"",language:"Bilingual (EN/ES)",lyrics:`CORO\nTuyo es el reino\nTuyo el poder\nTuya es la gloria por siempre Amén\nYours is the Kingdom\nYours is the power\nYours is the glory forever, amen\n\nPUENTE\nTu Reino Aquí, El Cielo Aquí\nYour kingdom come, let heaven come`},
+  {title:"Yeshua",section:"Altar Call",artist:"",language:"Bilingual (EN/ES)",lyrics:`VERSO 1\nMi amado es el más bello\nEntre millares y millares\nMy beloved is the most beautiful\nAmong thousands and thousands\n\nCORO\nYeshua ah...\nYeshua ah...\nYeshua ah...\nYeshua ah…`},
+  {title:"Te Exaltamos / When I Speak Your Name",section:"Altar Call",artist:"",language:"Bilingual (EN/ES)",lyrics:`VERSE 1\nJesus, the most beautiful Name\nOf all names\nJesus, the only name\nThat brings healing and strength\n\nPRE-CHORUS\nWhen I speak Your name\nMountains move, chains are loosed\nWhen I speak Your name\nDarkness flees; it has no hold on me\n\nCHORUS\nJesus, most beautiful name that I know\nYou're the exalted One\nJesus, You have the power alone\nYou lift the lowly one, Jesus\n\nVERSO 1\nJesús es el nombre más bello de todos\nJesús Tu nombre da sanidad y poder\n\nPRECORO\nAl decir Jesús\nvenceré, libre seré\nAl decir Jesús, la oscuridad no\ntiene poder en mi\n\nCORO\nCristo eres el más hermoso\nen mi ser, eres excelso Dios\nCristo, Tuyo es todo el poder,\nlevantas al que cayó\n\nPUENTE\nTe exaltamos, Te exaltamos\nTe exaltamos\nAlto y más alto\n\nPUENTE 2\n// No hay otro igual\nNo hay otro igual\nQue Tú //`},
+  {title:"Quebranta Mi Corazón",section:"Altar Call",artist:"",language:"Spanish only",lyrics:`CORO\nQuebranta mi corazón\nQuebranta mi vida\nTe entrego mi voluntad a ti\nTodo lo que soy Señor\nTodo cuanto tengo es tuyo\nYo quiero menguar para que crezcas Tú\n\nVERSO\n// Yo quiero más de ti\nY habitar en tu presencia\nMenguar para que crezcas Tú\nY cada día seré\nMás como Tú //`},
+  {title:"Pablo Y Silas",section:"Altar Call",artist:"",language:"Bilingual (EN/ES)",lyrics:`PRECORO\nY si Pablo y Silas te adoraron\ny las cadenas les fueron quitadas\nAsí quiero adorarte\n\nIf you broke the chains off\nof Paul and Silas,\nwhile they were praising\nin the darkest hour\nthat's how I want to worship\n\nPUENTE\n/// El velo que impedía\nTu presencia en mí vida\nSe rompió, se rompió ///\n\nPUENTE 2\nLlegó Jesús,\nel que pelea mis batallas\nLlegó Jesús,\nel que mueve las montañas\n\nLlegó mi amado\nLlegó mi amado\nHis name is Jesus\nHis name is Jesus\n\nCORO\nTú amor rompe cadenas\nNo tiene fronteras\nTú luz rompe condenas\nNo tiene barreras\n\nYour love's a bondage breaker\ndoesn't have a barrier\nYour light's a freedom maker\nCondemnation taker`},
+
+  // ── FROM 1/4/26 SETLIST ──
+  {title:"Hosanna Al Rey",section:"Praise/Avivamiento",artist:"",language:"Bilingual (EN/ES)",lyrics:`VERSO 1\nLevantamos Un Clamor\nPor Sanidad Y Redención\nMuéstranos Lo Que Tú Ves\nLos Secretos De Tu Corazón\n\nUn Pueblo Unido Pide Hoy\nTu Libertad Y Salvación\nÁrmanos Con Tu Valor\nLo Que Deseamos Es Revolución\n\nPRECORO\nQue El Cielo Se Parta En Dos\nInúndanos\nEn El Desierto Broten Ríos\nVida Sopla Hoy\n\nCORO\nHosanna Al Rey De Salvación\nHosanna Al Dios Altísimo\nHosanna\nJesucristo, Jesucristo Es Rey\n\nCHORUS\nHosanna King of Salvation\nHosanna To the Highest God\nHosanna, Jesus Christ\nJesus Christ is King\n\nPUENTE\nHosanna, Hosanna\nHosanna Al Rey`},
+  {title:"Los Muros Caerán / The Walls Are Falling",section:"Praise/Avivamiento",artist:"",language:"Bilingual (EN/ES)",lyrics:`VERSO 1\nCuando Le Canto\nLa Tierra Se Estremece\nLos Muros Caerán\n\nCuando Le Adoro\nSe Rompen Las Cadenas\nLos Muros Caerán\n\nCORO\nLos Muros Caerán\nLos Muros Caerán\nAl Sonar Mi Cántico Caerán\n\nLos Muros Caerán\nLos Muros Caerán\nCon Gritos De Júbilo Caerán\n\nCHORUS\nThe Walls Are Falling Down\nThe Walls Are Falling Down\nWith A Shout Of Victory\nThey Will Fall\n\nBRIDGE\n//We're Dancing, Rejoicing\nThe Walls Are Falling Down\nWe're Shouting, Declaring:\nThe Walls Are Falling Down!//\n\nPUENTE\nSaltando, Saltando\nLos Muros Caerán\nGritando, Gritando\nLos Muros Caerán`},
+  {title:"Ya Se Oye El Shofar / Come Oh Lord",section:"Praise/Avivamiento",artist:"",language:"Bilingual (EN/ES)",lyrics:`VERSO\nYa se oye el Shofar\nEn los cielos se oirá\nA Su amada Él\nEstá llamando\n\nCORO\nVen, Ven, Ven, Ven Señor\nVen, Ven, Ven, Ven Señor Esperándote\nEsta Tu Novia\n\nVERSE\nYou Can Hear The Shofar\nResound In Heaven\nTo His Beloved\nHe Is Calling\n\nCHORUS\nCome, Come, Come Come Oh Lord\nCome, Come, Come Come Oh Lord\nYour Bride Is\nWaiting For You`},
+  {title:"Gracias / Thank You Jesus",section:"Altar Call",artist:"",language:"Bilingual (EN/ES)",lyrics:`CORO\nGracias Gracias Señor\nGracias Mi Señor Jesús\n\nCHORUS\nThank You,\nThank You Jesus\nThank You My Lord Jesus\n\nVERSO 1\nMe Has Tomado En Tus Brazos\nY Me Has Dado Salvación\nDe Tu Amor Has Derramado\nEn Mi Corazón\n\nNo Sabré Agradecerte\nLo Que Has Hecho Por Mí\nSólo Puedo Darte Ahora Mi Canción\n\nVERSO 2\nEn La Cruz Diste Tu Vida\nEntregaste Todo Ahí\nVida Eterna Regalaste Al Morir\n\nPor Tu Sangre Tengo Entrada\nAnte El Trono Celestial\nPuedo Entrar Confiadamente Ante Ti`},
+  {title:"A Ti Me Rindo / I Surrender",section:"Altar Call",artist:"",language:"Bilingual (EN/ES)",lyrics:`VERSE 1\nHere I Am\nDown On My Knees Again\nSurrendering All\nSurrendering All\n\nAnd Find Me Here\nLord As You Draw Me Near\nDesperate For You\nDesperate For You\n\nCHORUS\nI Surrender\nI Surrender\nI Wanna Know You More\nI Wanna Know You More\n\nVERSO\nAnte Ti\nPostrado Estoy Aquí\nTe Rindo Mi Ser\nTe Rindo Mi Ser\n\nCon Tu Amor\nAtráeme Señor\nVengo A Tus Pies\nVengo A Tus Pies\n\nCORO\n//A Ti Me Rindo\nA Ti Me Rindo\nTe Quiero Conocer\nMás De Ti Conocer//\n\nBRIDGE\nLike A Rushing Wind\nJesus Breathe Within\nLord Have Your Way\nLord Have Your Way In Me\n\nLike A Mighty Storm\nStir Within My Soul\nLord Have Your Way\nLord Have Your Way In Me\n\nPUENTE\nCon Tu Aliento Dios\nSopla En Mi Interior\nCumple Señor\nTu Voluntad En Mí`},
+  {title:"Ven Espíritu Ven / Come Holy Spirit",section:"Altar Call",artist:"",language:"Bilingual (EN/ES)",lyrics:`VERSO\nVen espíritu ven\nY lléname Señor\nCon tu preciosa unción\n\nCORO\nPurifícame y lávame\nRenuévame, restáurame, Señor\nCon tu poder\n\nPurifícame y lávame\nRenuévame, restáurame, Señor\nTe quiero conocer\n\nVERSE\n// Come Holy spirit, come\nCome fill up my heart\nAnoint me once again //\n\nCHORUS\nPurify my soul And make me clean\nRenew my life\nRestore my heart to you\nWith your power\n\nPurify my soul And make me clean\nRenew my life\nRestore my heart to you\nI want to know you more`},
+  {title:"Tu Fidelidad / Your Faithfulness",section:"Altar Call",artist:"",language:"Bilingual (EN/ES)",lyrics:`Tu fidelidad es grande\nTu fidelidad incomparable es\nNadie como tú, bendito Dios\nGrande es tu fidelidad\n\nYour Faithfulness Is Great\nYour Faithfulness Is Incomparable\nNone Is Like You, Faithful God\nGreat Is Your Faithfulness`},
+  {title:"Digno Eres / Worthy Are You",section:"Altar Call",artist:"",language:"Bilingual (EN/ES)",lyrics:`VERSO 1\n// Digno eres, digno eres,\nde la Gloria y alabanza,\ndigno eres //\n\n// Worthy are you,\nworthy are you,\nof the glory and praises,\nworthy are you //\n\nVERSO 2\n// Te adoramos, te adoramos,\ncon las manos levantadas,\nte adoramos //\n\n// We adore you, we adore you,\nwith our hands lifted high,\nwe adore you //`},
+  {title:"Trono De Alabanza / I Want To Fill Your Throne",section:"Worship/Adoración",artist:"",language:"Bilingual (EN/ES)",lyrics:`VERSO\nQuiero llenar\ntu trono de alabanza\n\nQuiero llenar\ntu trono de adoración\n\nQuiero adorar\nPostrarme en tu presencia\nY proclamarte Señor\n\nVERSE\nI want to fill\nyour throne with our praises,\n\nI want to fill\nyour throne with our worship.\n\nI want to worship,\nbow down in your presence,\nand proclaim you, oh Lord.`},
+
+  // ── FROM 5/18/25 SETLIST ──
+  {title:"You Are Good / Eres Fiel",section:"Praise/Avivamiento",artist:"",language:"Bilingual (EN/ES)",lyrics:`VERSO 1\n// Señor eres fiel\nY tu misericordia eterna //\n\nPRECORO\nGente de toda lengua y nación\nDe generación a generación\n\nCORO\n// Te Adoramos hoy\nAleluya, Aleluya\nTe Adoramos hoy eres Señor //\nEres Fiel!!\n\nCHORUS\n// We worship you\nHallelujah, Hallelujah\nWe worship you, for who you are //\nYou are Good!!\n\nBRIDGE\n// You are good all the time\nAll the time, You are good //\n\nPUENTE\n// Eres Fiel, Siempre Fiel\nSiempre fiel, Tu Eres Fiel //`},
+  {title:"Nombre No Hay / No Other Name",section:"Praise/Avivamiento",artist:"",language:"Bilingual (EN/ES)",lyrics:`VERSO\nNombre sobre todo nombre\nReinarás por siempre\nSiempre igual\nexáltale\n\nCristo sobre todo nombre\nReinarás por siempre\nSiempre igual\nexáltale\n\nCORO\nNombre no hay, más grande\nNombre no hay, más fuerte\nNombre no hay, por siempre\nVen exáltale\n\nNombre no hay, que sane\nNombre no hay, que salve\nNombre no hay, precioso\nExáltale\n\nVERSE\nPraise the Name above all names\nThe one who reigns forever\nStill the same\nPraise the name\n\nCHORUS\nNo other name that's higher\nNo other name that's stronger\nNo other name forever I will praise the name\n\nNo other name can heal us\nNo other name can free us\nNo other name so precious\nPraise the name\n\nPUENTE\nEn el cielo y en la tierra\nTe proclamaré\nCristo, Cristo\nCristo precioso es\n\nBRIDGE\nEvery nation all creation\nWill proclaim your name\nJesus, Jesus,\nJesus no other name`},
+  {title:"Covenant Keeping God",section:"Worship/Adoración",artist:"",language:"Bilingual (EN/ES)",lyrics:`VERSE\nYou'll never leave me\nYou said that You won't forsake me\nYou walk beside me\nAnd that is all that matters\n\nCHORUS\nYou are the covenant keeping God\nYou are the covenant keeping God\nYahweh, the covenant keeping God\nYahweh, the covenant keeping God\n\nVERSO\nNunca me dejas\nDices que no me abandonas\nCaminas conmigo\nY eso el lo que importa\n\nCORO\nSiempre el pacto tú guardarás\nSiempre el pacto tú guardarás\nYahweh, el pacto tú guardarás\nYahweh, el pacto tú guardarás\n\nBRIDGE\nThe sun won't smite me\nAnd the moon, Lord, will not hurt me\nThe flood won't sweep me\nMy Lord, You are my anchor\n\nPUENTE\nEl sol no me hiere\nLa luna, no me hará daño\nY en la tormenta\nSeñor eres mi ancla`},
+  {title:"What A God",section:"Worship/Adoración",artist:"",language:"Bilingual (EN/ES)",lyrics:`VERSE 1\nWho thought I'd find You at the lowest place?\nWho thought You'd feel me in the crowd?\nWho knew You make good of my mistakes?\nYou're nothin' like I thought You were, You're better\n\nCHORUS\nWhat a God, what a God\nWhat a God, what a God\n\nVERSO 1\n¿Quién pensó que en todas mis fallas\nQue obrarías todo para bien?\n¿Quién pensó que allí te encontraría?\nEres superior a lo que imaginaba\n\nCORO\nQuién es como mi Dios?\nQuién es como mi Dios?\n\nBRIDGE\nIf the highest place I reached\nIs at Your feet\nThen I've done it all\nIf the best thing that I've seen\nIs Your glory\nThen I've seen it all\nYour love has changed my life\nForever satisfied\nGod You are my everything\n\nPUENTE\nSi mi limite es llegar ante tus pies\nEso bastara\nSi Tu gloria he podido contemplar\nPor ver no hay nada más\nTu amor me transformó\nSacias mi corazón\nDios, Tu eres todo en mi`},
+  {title:"Santo Es El Que Vive / Holy Is The One Who Lives",section:"Altar Call",artist:"",language:"Bilingual (EN/ES)",lyrics:`VERSO\nCorrió su sangre por el madero\nA él no lo mataron, se entregó primero\nDe tal manera amó Jesús\nQue entregó su vida en la Cruz\n\nNo dijo nada, no abrió su boca\nLe hieren, le golpean, pero Él perdona\nDe tal manera amó Jesús\nQue entregó su vida en la Cruz\n\nCORO\nSanto es el que vive, santo es el que reina\nSanto en las alturas, santo aquí en la tierra\nSanto en el pesebre, santo en el sepulcro\nSanta es su sangre derramada en la Cruz\n\nPUENTE\nTodos lo verán\nComo un rey en las nubes volverá\nCoronado en poder y autoridad\nEl cordero y león reinará\n\nPUENTE 2\n// Santo, santo, santo,\nsanto es Jesús de Nazaret //\n\nCHORUS\nThe one who lives is Holy, the one who reigns is Holy\nHoly in the heavens, Holy here on earth\nHoly in the manger, Holy on the tomb,\nHoly is the blood of Jesus poured on the cross`},
+  {title:"Llévame Al Lugar Santísimo",section:"Altar Call",artist:"",language:"Spanish only",lyrics:`CORO\nLlévame al lugar santísimo\nPor la sangre del Cordero Redentor\nLlévame al lugar santísimo\nTócame, límpiame, heme aquí\n\nVERSO\nSeñor llévame a tus atrios\nal lugar santo\nal altar de bronce\nSeñor tu rostro quiero ver\n\nPásame en la muchedumbre\nPor donde el sacerdote canta\nTengo hambre y sed de justicia\nY solo encuentro un lugar`},
+  {title:"Tu Nombre Es Santo",section:"Altar Call",artist:"",language:"Spanish only",lyrics:`Yo entro al lugar más santo\nA través del cordero de Dios\nY vengo tan solo a adorarte\nYo entro a honrar al Yo Soy\n\nDios, te adoro a Ti\nTe adoro a Ti\nDios, te adoro a Ti\nTe adoro a Ti\n\nPues Su nombre es Santo\nSanto Dios\nPues Su nombre es Santo\nSanto Dios`},
+
+  // ── FROM 9/21 SETLIST ──
+  {title:"Better Is One Day / Mejor Es Un Día",section:"Worship/Adoración",artist:"Matt Redman",language:"Bilingual (EN/ES)",lyrics:`CHORUS\nBetter is one day in Your courts\nBetter is one day in Your house\nBetter is one day in Your courts\nThan thousands elsewhere\n\nCORO\nMejor es un día en sus atrios\nMejor es un día en su casa\nMejor es un día en sus atrios\nQue mil fuera de ellos`},
+  {title:"Hay Una Esperanza",section:"Altar Call",artist:"",language:"Spanish only",lyrics:`VERSO 1\nHay Una Esperanza, Dentro De Mi Ser\nDe Mirar El Rostro, De Mi Buen Jesús\n\nCada Día Me Esfuerzo Más, Para Asegurar\nDe Ser Levantado, Cuando El Vuelva\n\nCORO\nQue Glorioso Será Ver\nA Mi Jesús Y Hablar Con El,\nY Decirle Lo Feliz Que Soy Allí,\n\nTodos Mis Afanes, Terminaran\nYo Descansaré, En Los Brazos,\nDe Jesús`},
+
+  // ── FROM SUNDAY 01/26 ──
+  {title:"Fuente De Misericordia",section:"Worship/Adoración",artist:"",language:"Spanish only",lyrics:`Dios con su poder afirmó los cielos y la tierra;\nA las estrellas vistió de claridad;\nY la expansión, obra de sus manos, habla doquiera,\nMás el milagro más grande del mundo\nFue el sacrificio de Jesús, allá en la cruz\n\nCORO\nOh manantial, fuente de misericordia!\nSol de justicia es tu compasión;\nVida eternal es la ofrenda de tu gloria,\nDulce esperanza que llena el corazón`},
+  {title:"Hay Una Fuente En Mí",section:"Worship/Adoración",artist:"",language:"Spanish only",lyrics:`VERSO\n// Hay una fuente en mí\nQue está brotando\nQue está fluyendo\nDentro de mí //\n\nCORO\nEs un río de alabanza\nY de adoración\nDirigido hacia ti\nSenor Jesus\nRecíbelo`},
+  {title:"Estamos Aquí Para Adorar",section:"Worship/Adoración",artist:"",language:"Spanish only",lyrics:`// Estamos aquí para adorar\nmis manos comienzo a levantar\nMis cargas comienzo a soltar\nporque tú y yo estamos aquí para adorar //\n\nAdórale y comienza a alabar\nAdórale y comienza a cantar\nAdórale y comienza a declarar que Dios lo hará\nPorque estamos aquí para adorar`},
+  {title:"En Tí Confía Mi Corazón",section:"Worship/Adoración",artist:"",language:"Bilingual (EN/ES)",lyrics:`En ti confía mi corazón,\nen ti reposa mi alma\nmi ser descansa en ti,\npuedo ser feliz\n\nIn you, my heart trusts alone\nMy soul lies in you\nMy being rests on you\nI can be happy`},
+  {title:"Espíritu Santo Ven / Holy Spirit Come",section:"Altar Call",artist:"Barak",language:"Bilingual (EN/ES)",lyrics:`VERSO\nEstoy aquí\nDesesperado por ti\nCon un corazón sediento\nQue espera beber de ti\n\nPRECORO\nCuando tu gloria desciende a un lugar\nToda la tierra tiene que adorar\nResucitan los muertos\nSe sanan enfermos por tu poder\n\nQueremos de ti, llénanos de ti\nEspíritu Santo, envuélvenos en ti\nDerrama tu gloria\nEsperamos por ti\n\nCORO\nVen, ven, ven\nEspíritu Santo ven, ven, ven\nEspíritu Santo ven, ven, ven\nLlena este lugar\nCome, Come, Come Holy Spirit\nCome, Come, Come Holy Spirit\nCome, Come, come\nCome fill this place\n\nPUENTE\ntransfórmame (Ven)\nquebrántame (Ven)\nrestáurame, Oh, vivifícame (ven)\nlibértame (ven)\nenvuélveme (ven)\nreposa sobre mí`},
+  {title:"Mesías / Messiah",section:"Altar Call",artist:"Averly Morillo",language:"Bilingual (EN/ES)",lyrics:`VERSO\nMi templo He preparado\nMi lámpara encendida está\nLa tierra está gimiendo\nPor El que vino y que vendrá\n\nCORO\nVen, ven, ven, ven, ven\nMesías ven\nQue Tu pueblo te espera\nTu pueblo te espera\n\nPUENTE\nTodo ojo le verá\nTodo ante Él se humillará\nLa creación pidiendo está\nQue entre el Rey\nEvery eye shall see the King\nEvery knee shall bow to Him\nAll creation's crying out:\nLet the King enter in`},
+  {title:"Quiero Conocer A Jesús / I Want to Know Jesus",section:"Altar Call",artist:"Generación 12",language:"Bilingual (EN/ES)",lyrics:`VERSO\nMi orgullo me sacó del jardín\nSu humildad puso el jardín en mí\n\nY si vendiera todo lo que tengo\nA cambio de Su amor yo fallaría\n\nPRECORO\nPorque Su amor no se compra\nNi se merece\nSu amor es un regalo\nDe gracia se recibe\n\nCORO\nQuiero conocer a Jesús\nQuiero conocer a Jesús\nQuiero conocer a Jesús\n\nCHORUS\nI want to know more\nI want to know Jesus\nI want to know more\nI want to know Jesus`},
+  {title:"Ven Señor / Come Like You Promised",section:"Altar Call",artist:"",language:"Bilingual (EN/ES)",lyrics:`CORO\nVen Señor, como dijiste\nDerrama tu Gloria\nDerrama tu Gloria\n\nWon't You come\nCome like You promised\nPour out Your Glory\nPour out Your Glory\n\nPUENTE\nMe amas como padre,\ncomo un hermano\nY como un león feroz,\ncomo nadie\nCon fuerza me buscas,\npara abrazarme\nMe envuelves en tu amor\n\nYou love like a Father\nYou love like a brother\nIts fierce like a Lion\nThere is no other\nAnd Even in my hiding,\nyou come to find me,\nAnd wrap me in who You are`},
+
+  // ── FROM SUNDAY 1/12 ──
+  {title:"Goodness Of God / Bondad De Dios",section:"Worship/Adoración",artist:"Bethel Music",language:"Bilingual (EN/ES)",lyrics:`VERSE 1\nI Love You, Lord\nFor Your Mercy Never Fails Me\nAll My Days, I've Been Held In Your Hands\nFrom The Moment That I Wake Up\nUntil I Lay My Head\nI Will Sing Of The Goodness Of God\n\nCHORUS\nAnd All My Life You Have Been Faithful\nAnd All My Life You Have Been So, So Good\nWith Every Breath That I Am Able\nOh, I Will Sing Of The Goodness Of God\n\nVERSO 1\nTe amo Dios\nTu amor nunca me falla\nMi existir En tus manos está\n\nDesde el momento en que despierto\nHasta el anochecer\nYo cantaré de la bondad de Dios\n\nCORO\nEn mi vida has sido bueno\nEn mi vida has sido tan, tan fiel\nCon mi ser con cada aliento\nYo cantaré de la bondad de Dios\n\nBRIDGE\nYour Goodness Is Running After\nIt's Running After Me\nWith My Life Laid Down\nI'm Surrendered Now\nI Give You Everything\n'cause Your Goodness Is Running After\nIt's Running After Me`},
+  {title:"Oh How He Loves Us / El Nos Ama",section:"Worship/Adoración",artist:"",language:"Bilingual (EN/ES)",lyrics:`PRE-CHORUS\nOh, How He Loves Us, Oh\nOh How He Loves Us\nHow He Loves Us Oh\n\nCHORUS\nHe Loves Us\nOh How He Loves Us\nOh How He Loves Us\nOh How He Loves Us\n\nPRECORO\nOh, El Nos Ama, Oh\nOh El Nos Ama\nEl Nos Ama Oh\n\nCORO\nEl Nos Ama Oh\nEl Nos Ama Oh\nEl Nos Ama Oh\nEl Nos Ama`},
+  {title:"I Give Myself Away / Me Entrego A Ti Señor",section:"Altar Call",artist:"",language:"Bilingual (EN/ES)",lyrics:`CHORUS\n// I Give Myself Away\nI Give Myself Away\nSo You Can Use Me //\n\nCORO\n// Me Entrego A Ti Señor\nMe Entrego A Ti Señor\nPara Que Me Uses //\n\nVERSE 1\nHere I Am\nHere I Stand\nLord, My Life Is In Your Hands\n\nLord, I'm Longing To See\nYour Desires Revealed In Me\n\nVERSO 1\nAqui Estoy\nMe Rindo A Ti\nSeñor Mi Vida Tuya Es\nMe Acerco, Quiero Ver\nTus Deseos Para Mi Ser\n\nBRIDGE\n/// My Life Is Not My Own\nTo You I Belong\nI Give Myself,\nI Give Myself To You ///\n\nPUENTE\n///Mi Vida No Es Mía\nA Ti Te Pertenezco,\nMe Entrego A Ti,\nMe Entrego Todo A Ti///`},
+  {title:"Viva La Fe",section:"Praise/Avivamiento",artist:"",language:"Spanish only",lyrics:`Viva La Fe, Viva La Esperanza,\nViva El Amor\nViva La Fe, Viva La Esperanza,\nViva El Amor\n\nQue Viva Cristo, Que Viva Cristo, Que Viva El Rey\n// Que Viva Cristo, Que Viva, Que Viva\nCristo, Que Viva, Que Viva Cristo,\nQue Viva El Rey //`},
+  {title:"Alabaré",section:"Praise/Avivamiento",artist:"",language:"Bilingual (EN/ES)",lyrics:`//Alabaré, (Alabaré),\nAlabaré, (Alabaré)\nAlabaré A Mi Señor//\n\nJuan Vio El Número De Los Redimidos\nY Todos Alababan Al Señor\nUnos Oraban, Otros Cantaban\nPero Todos Alababan Al Señor\n\n//I Will Praise,\nI Will Praise,\nI Will Praise Unto My Lord//`},
+  {title:"Yo Tengo Gozo",section:"Praise/Avivamiento",artist:"",language:"Spanish only",lyrics:`Yo Tengo Gozo En Mi Alma\nGozo En Mi Alma\nGozo En Mi Alma Y En Mi Ser\nSon Como Ríos De Agua Viva\nRíos De Agua Viva\nRíos De Agua Viva En Mi Ser`},
+  {title:"Hay Poder / There Is Power",section:"Praise/Avivamiento",artist:"",language:"Bilingual (EN/ES)",lyrics:`//Hay Poder, Poder, Sin Igual Poder\nEn Jesús Que Murió\n\nHay Poder, Poder Sin Igual Poder\nQue En La Sangre Que Él Vertió//\n\n//There Is Power, Power, Wonder-Working Power\nIn The Blood Of The Lamb\n\nThere Is Power, Power, Wonder-Working Power\nIn The Precious Blood Of The Lamb.//`},
+  {title:"Mira Lo Que Hizo Dios / Look What The Lord Has Done",section:"Praise/Avivamiento",artist:"",language:"Bilingual (EN/ES)",lyrics:`// Mira lo que hizo Dios //\n\nSanó mi cuerpo\nTocó mi mente\nMe salvó justo a tiempo\n\nY yo le alabaré\nEs el mismo de ayer\nLe alabaremos\nMira lo que hizo Dios\n\n// Look what the Lord has done //\n\nHe healed my body\nHe touched my mind\nHe saved me, just in time\n\nI'm gonna praise His name\nEach day He's just the same\nCome on and praise Him\nLook what the Lord has done`},
+  {title:"Victoria La Victoria Mía Es / Victory The Victory Is Mine",section:"Praise/Avivamiento",artist:"",language:"Bilingual (EN/ES)",lyrics:`// Victoria la Victoria mía es\nVictoria la Victoria mía es\n\nSi mantengo mi paz\nÉl pelea la batalla\nVictoria la victoria mía es //\n\n// Victory the Victory is mine\nVictory the Victory is mine\n\nIf I maintain my peace,\nhe will fight my battles\nVictory the victory is mine //`},
+  {title:"Soy Bautizado",section:"Special",artist:"",language:"Spanish only",lyrics:`VERSO 1\nSoy bautizado como manda el Salvador,\nQue grande gozo siento yo en mi corazon\nYa mis pecados los borró mi Salvador;\nQuiero llegar puro y limpio a su mansión.\n\nCORO\n//Seguiré a mi Jesús,\nPues para mí lo del mundo se acabó;\nY ayudado de su luz\nProseguir en su\ncamino quiero yo//`},
+  {title:"He Decidido Seguir A Cristo / I Have Decided",section:"Special",artist:"",language:"Bilingual (EN/ES)",lyrics:`He decidido seguir a Cristo\nHe decidido seguir a Cristo\nNo vuelvo atrás, no vuelvo a atrás\n\nI have decided to follow Jesus;\nI have decided to follow Jesus;\nNo turning back, no turning back.\n\nThe world behind me, the cross before me,\nThe world behind me, the cross before me;\nNo turning back, no turning back.`},
+
+  // ── FROM GRANDE ES EL AMOR MEDLEY DOC ──
+  {title:"Te Alabo Te Alabo",section:"Worship/Adoración",artist:"",language:"Bilingual (EN/ES)",lyrics:`CORO\nTe alabo, te alabo\ny mi alma,\nNo se cansa de alabarte,\n\nTe alabo, te alabo\nMientras vida exista en mí ser.\n\nVERSO 1\nTe alabo, mi señor,\n yo te alabo\nPorque tú eres precioso, Para mí,\nporque junto a ti, Voy caminando,\nporque siento, Tu presencia en mi ser.\n\nCHORUS\nWe worship you, we worship you\nAnd my soul\nDoesn't tire,\nof worshiping you\n\nWe worship you, we worship you\nWhile breath exists in my soul`},
+  {title:"Santo Santo Santo / Holy Holy Holy",section:"Worship/Adoración",artist:"",language:"Bilingual (EN/ES)",lyrics:`CORO\nSanto santo santo\nMi corazón te adora,\nMi corazón sabe decir santo eres tu\n\nCHORUS\nHoly, holy, holy\nMy heart it worships you\nMy heart it knows, only to sing,\nHoly, you are, holy`},
+  {title:"Bendito Sea El Señor / Holy Is The Lord",section:"Worship/Adoración",artist:"",language:"Bilingual (EN/ES)",lyrics:`CORO\n//Bendito sea el Señor, Dios poderoso\nQuien fue, quien es y quien vendrá\nBendito sea el Señor, Dios poderoso\nPor siempre Reinara\n\nVERSO 1\nPadre del cielo, te adoramos\nY Alzamos hoy tu nombre en alto\nQue tu reino se establezca en la alabanza\nDe tu pueblo que declara tu poder//\n\nCHORUS\nHoly is The Lord, God almighty\nWho was, who is, and is to come\nHoly is The Lord, God almighty\nForever He will reign`},
+
+  // ── FROM SUNDAY 12/22, 5/28, 1/2, 2/27, 2/26 ──
+  {title:"Necesito Un Encuentro",section:"Altar Call",artist:"",language:"Bilingual (EN/ES)",lyrics:`VERSO\n// Yo quiero ser uno contigo\ny compartir en comunión\nen el lugar santísimo //\n\n// I want to be one with you\nAnd fellowship, in communion\nIn the Holy of Holies //\n\nOhh ohh ohhhhh ohohohhh\n\nCORO\nNecesito un encuentro con el Dios vivo,\nestar en tu presencia y decir aquí estoy\nNecesito un encuentro con el Dios vivo\ny estar cara a cara con el gran yo soy\n\nCHORUS\nI need an encounter with the living God\nto stand in your presence and say here I am\nI need an encounter with the living God\nto be face to face with the great I am\n\nwith the great I am\nCon el gran yo soy\n\nPUENTE\n/// Nada nunca me saciara como tu lo haces,\nen un encuentro sobrenatural todo fluye de tu trono ///\n\n/// Nothing ever will Satisfy\nLike you do, Only you Can\nOur encounter is Supernatural\nEverything flows from your throne ///`},
+  {title:"Te Bendeciré / I Will Bless The Lord",section:"Altar Call",artist:"",language:"Bilingual (EN/ES)",lyrics:`CORO\nTe bendeciré,\nTe bendeciré\nPor siempre, por siempre\n\nPUENTE\nPor siempre oh señor,\nte bendeciré\ncon mi corazón\nyo te cantaré\n\nCHORUS\nI will bless the Lord,\nI will bless the Lord\nAt all time, at all time\n\nBRIDGE\nForever I will sing\nI will bless you Lord\nWith all of my heart\nI will give you praise`},
+  {title:"Espíritu De Dios Llena Mi Ser (Medley)",section:"Praise/Avivamiento",artist:"",language:"Bilingual (EN/ES)",lyrics:`MED 1\nVERSO\nEspíritu de Dios Llena mi vida\nLlena mi alma\nLlena mi ser\n\nCORO\nY lléname\n( lléname, lléname ) Con Tu presencia\n( lléname, lléname ) Con Tu poder\n( lléname, lléname) Con Tu amor\n\nVERSE\nSpirit of The Lord\nO fill my life\nO fill my soul\nAnd my whole being\n\nCHORUS\nO fill me up…\n(fill me up, fill me up) with all your presence\n(fill me up, fill me up) With your power\n(fill me up, fill me up) With all your love\n\nMED 2 — Fuego / Fire\nVERSO\n// Hay una llama que arde en mi\nun gran poder que esta en ti\nMe esta quemando su fuego santo\nPuedo sentirlo esta aquí //\n\nCORO\nFuego (fuego)\nFuego del Señor\nFuego purificador\n\nVERSE\n// There is a flame that burns in me\nA great power that is in you\nYour holy fire is burning me\nI can feel it is here //\n\nCHORUS\nFire (Fire)\nFire of the lord\nPurifying fire`},
+  {title:"Hay Una Unción",section:"Worship/Adoración",artist:"",language:"Spanish only",lyrics:`VERSO\nHay una unción aquí,\ncayendo sobre mí\nLlenándome, saciando mi ser\n\nHay una unción aquí,\ncayendo sobre mí\nLlenándome, cambiando mi ser\n\nCORO\nMi espíritu y mi alma,\nse están llenando\nCon el poder de tu espíritu santo\nMi vida nunca más será igual`},
+  {title:"Inúndanos De Tu Gloria / Overwhelm Us",section:"Worship/Adoración",artist:"",language:"Bilingual (EN/ES)",lyrics:`CORO\nInúndanos de tu gloria,\ninúndanos de tu gloria\nTrae aquí el cielo,\ntrae aquí el cielo\n\nPUENTE\nAnte tu gloria demonios caen\nHuye la muerte, ya no hay enfermedad\nEl cielo aquí está\n\nCHORUS\nOverwhelm us in glory\nOverwhelm us in glory\nLet us see your kingdom\nLord show us your kingdom\n\nBRIDGE\nDarkness cannot stand\nbefore your glory\nSin and death flee now\nSatan has no grip on me\nJesus is the King`},
+  {title:"Te Quiero Adorar / Santo Cordero",section:"Worship/Adoración",artist:"",language:"Bilingual (EN/ES)",lyrics:`VERSO 1\nDiste tu vida en el calvario\nMoriste allí por mi\nLo diste todo por salvarme a mi\n\nTu padeciste en mi lugar\nSiempre yo te voy amar\nTu sangre diste por amor a mi\n\nNo se como pagar lo que hiciste por mi\nTe doy mi adoración a ti\n\nCORO\nSanto Cordero, Dios de los cielos\nTe quiero adorar, te quiero exaltar\nEl universo, el mundo entero\nTe tiene que adorar, te tiene que exaltar\n\nVen Espíritu de Dios, lléname de tu unción\nSana mi corazón, lléname de tu unción`},
+  {title:"Tú Eres Rey / You Are King",section:"Praise/Avivamiento",artist:"",language:"Bilingual (EN/ES)",lyrics:`VERSO 1\nOh perfecto inigualable Dios\nAmor inexplicable\nTu reino inigualable\nAsombroso coronado estas\nEn tu trono de victoria\nVestido estas de gloria\n\nPRECORO\nPor los siglos de los siglos\nTu reino se establecerá\nDigno de gloria, digno de honor\nDigno de toda adoración\n\nCORO\nTú eres rey\nTú eres rey\nTú eres rey\nTú eres rey\n\nPUENTE\nHoy perfumamos tu trono\nHoy perfumamos tu trono\nRecibe alabanza\n\nVerse 1\nYou are perfect, you are matchless God\nYour love is like no other\nNo one compares to you\nYou are awesome, you are crowned as King\nYour throne remains victorious\nYou are clothed in glory\n\nChorus\nYou are King\nYou are King\nYou are King\n\nBridge\nWe lift a fragrance to your throne\nWe lift a fragrance to your throne\nYou're worthy of our worship`},
+  {title:"La Tierra Canta",section:"Worship/Adoración",artist:"",language:"Bilingual (EN/ES)",lyrics:`CORO\n// La tierra canta\nEl cielo adora\nY todos gritan\nQue tú eres santo //\n\nVERSO 1\nSe abren los cielos\nSe escucha un sonido celestial\nUnido a las voces\nDe un pueblo que te quiere adorar\n\nEl Espíritu de Dios\nSe mueve libre en este lugar\nEl Padre alegre está\nAl ver la novia unirse a adorar\n\nPUENTE\n//// Angeles se unen hoy\nCantamos a una sola voz\nSanto ////\n\n// All the angels worship you\nYour children join to sing your praise\nHoly Holy //\n\n// The land is singing\nThe heavens worship\nCreation declares\nThat you are holy //`},
+  {title:"Como En El Cielo / Here As In Heaven",section:"Worship/Adoración",artist:"",language:"Bilingual (EN/ES)",lyrics:`///Que tu poder, descienda hoy\nVenga tu Reino\nQue se haga aquí, tu voluntad\nComo en el cielo///\n\n///Spirit of God fall fresh on us\nWe need Your presence\nYour kingdom come, Your will be done\nHere as in heaven///\n\nLlena este lugar\nDerramando Tu amor\nTu amor me envuelve\n\nHe venido por Ti\nA Tus brazos de amor\nTu amor me envuelve`},
+  {title:"Si Te Tengo A Ti",section:"Worship/Adoración",artist:"",language:"Spanish only",lyrics:`CORO\nSi te tengo a ti\nLo tengo todo\nMi amado, mi tesoro\nFuera de ti\nNada deseo, Señor\n\nVERSO\n// Cristo Jesús eres mi plenitud\nCristo Jesús eres mi plenitud //`},
+  {title:"Gozo Gozo Gozo",section:"Offering/Ofrenda",artist:"",language:"Spanish only",lyrics:`Gozo, gozo, gozo\nGozo yo quería,\npero lo buscaba donde no lo había,\n\nGozo, gozo, gozo\nGozo yo quería,\npero lo buscaba donde no lo había,\n\nPero vino Cristo el dador de la vida,\ny me dio el gozo,\ndel que yo quería`},
+  {title:"Poderoso Dios / Mi Alma Clama",section:"Altar Call",artist:"",language:"Spanish only",lyrics:`Poderoso Dios\nPoderoso Dios\nPoderoso Dios\nMi alma clama por ti\n\nMi alma clama por ti\nMi alma clama por ti\nMi alma clama por ti\nMi alma clama por ti`},
+
+  // ── FROM SUNDAY 4/10 ──
+  {title:"Celebra Victorioso",section:"Praise/Avivamiento",artist:"",language:"Bilingual (EN/ES)",lyrics:`CORO\nCelebra Victorioso El Triunfo De Cristo\nTe Ha Hecho Mas Que Vencedor\nMayor Es El Que Esta En Mi\nQue El Que Esta En El Mundo\nMe Ha Hecho Mas Que Vencedor\n\nVERSO\nTodo Lo Puedo En Cristo Que Me Fortalece\n(Mas Que Vencedor)\nSi Dios Esta Conmigo, Quien Contra Mi\n(Mas Que Vencedor)\nSoy Mas Que Vencedor En Cristo\n(Mas Que Vencedor)\n\nCHORUS\nCelebrate All Ye People\nThe Great Triumph Of Jesus\nHe Has Made Us More Than Victorious\nGreater Is He That's In Me\nThan He That Is In The World\nHe Has Made Us More Than Victorious\n\nVERSE\nI Can Do All Things With Christ Who Is With Me\n(More Than Victorious)\nIf He Is For Us Then Who Can Be Against?\n(More Than Victorious)\nI'm More Than A Conqueror In Jesus\n(More Than Victorious)\n\nFINALE\nCELEBRA VICTORIOSO`},
+  {title:"Vine A Adorarte / Here I Am To Worship",section:"Worship/Adoración",artist:"",language:"Bilingual (EN/ES)",lyrics:`VERSO 1\nTu eres la luz\nQue brillo en las tinieblas\nAbrio mis ojos, pude ver\nMi corazon\nADORA tu hermosura\nEsperanza de vida eres tu\n\nCORO\nVine a adorarte\nVine a postrarme\nVine a decir que eres mi Dios\nSolo tu eres grande\nSolo tu eres digno\nEres asombroso para mi\n\nVERSE 2\nKing of all days\nOh so highly exalted\nGlorious in heaven above\nHumbly You came\nto the earth You created\nAll for love's sake became poor\n\nCHORUS\n// Here I am to worship\nHere I am to bow down\nHere I am to say that You're my God\nYou're altogether lovely\nAltogether worthy\nAltogether wonderful to me //`},
+  {title:"Envuelveme En Ti / Overflow",section:"Worship/Adoración",artist:"",language:"Bilingual (EN/ES)",lyrics:`CORO\n//Llena este lugar\nDerramando tu amor\nTu amor\nMe envuelve\n\nHe venido por ti\nA tus brazos de amor\nTu amor\nMe envuelve//\n\nCHORUS\n//Overflow in this place\nFill our hearts with Your love\nYour love surrounds us\nYou're the reason we came\nTo encounter Your love\nYour love surrounds us//\n\nBRIDGE\nSpirit of God\nFall fresh on us\nWe need your presence\nYour kingdom come\nYour will be done\nHere as in heaven`},
+  {title:"I'm Going To See A Victory / Voy A Ver La Victoria",section:"Altar Call",artist:"",language:"Bilingual (EN/ES)",lyrics:`CHORUS\nI'm gonna see a victory\nI'm gonna see a victory\nFor the battle belongs to You, Lord\n\nCORO\nVoy a ver la victoria\nVoy a ver la victoria\nLa batalla es tuya, Senor`},
+  {title:"El Borde De Su Manto",section:"Altar Call",artist:"",language:"Spanish only",lyrics:`VERSO 1\n//Si tan solo, tocare el borde de su manto\nSi tan solo pudiera ver su rostro\nSi tan solo pudiera tocar sus manos\nLibre seria, yo se\n\nSi tan solo, tocare el borde de su manto\nSi tan solo pudiera oir su voz\nSi tan solo pudiera acercarme a el\nLibre seria, yo se //\n\nCORO\nPorque delante de ti\nSolo soy alguien que necesita\nUn toque del maestro para ser liberado\nPorque delante de ti\nSolo soy alguien que necesita\nUna mirada de mi Salvador`},
+  {title:"Soy Amante De Tu Presencia / Lover of Your Presence",section:"Altar Call",artist:"",language:"Bilingual (EN/ES)",lyrics:`VERSO 1\nOoh\n// Sacrificio quiero dar\nY mi vida dedicar\nPara adorarte //\n\nCORO\nSoy amante de tu presencia\nSoy amante de tu presencia\nSoy amante de tu presencia\nY siempre quiero ser\n\nVERSE 1\nOoh\n// Let this be a sacrifice\nlet me dedicate my life\nto worship you //\n\nCHORUS\nI'm a lover of your presence\nI'm a lover of your presence\nI'm a lover of your presence\nAnd I always wanna be\n\nVERSO 2\n// Pasion tenemos por estar\nSolo Tu nos llenara\nAl adorarte //\n\nCORO 2\n//// Somos amantes de tu presencia\nSomos amantes de tu presencia\nSomos amantes de tu presencia\nY siempre queremos ser ////`},
+  {title:"Al Que Está Sentado En El Trono",section:"Worship/Adoración",artist:"",language:"Bilingual (EN/ES)",lyrics:`VERSO\nQuiero conocerte\nCada dia mas a Ti\nEstar en tu Presencia y adorar\nRevelanos tu Gloria\nDeseamos ir mucho mas en Ti\nQueremos tu Presencia\nJesus\n\nCORO\nAl que esta sentado en el Trono\nAl que vive para siempre y siempre\n// Sea la Gloria\nSea la Honra y el Poder //\n\nVERSE\nI want to know You\nEvery moment, more and more\nTo stand in Your presence and adore\nShow us Your glory\nOur hearts desire more of You\nWe're longing for Your presence, Lord\n\nCHORUS\nTo the One who is seated on the throne\nTo the One who reigns Forever and ever\n// Be all the glory,\nbe all the honor and the praise //\n\nBRIDGE\nHoly Holy\nHoly Holy\nHoly are You Lord`},
+  {title:"The Blessing / La Bendición",section:"Altar Call",artist:"Kari Jobe / Cody Carnes",language:"Bilingual (EN/ES)",lyrics:`VERSE 1\nThe Lord bless you and keep you\nMake His face shine upon you\nand be gracious to you\nThe Lord turn His face toward you\nAnd give you peace\n\nCHORUS\n//Amen, amen, amen//\n\nVERSO\n//Dios te guarde\nY bendiga\nQue extienda Su amor\nY te muestre favor\nDios te mire con agrado\nY te de paz //\n\nBRIDGE\n//May His favor be upon you\nAnd a thousand generations\nAnd your family and your children\nAnd their children, and their children// 4X\n\nPUENTE\n//Que te cubra con Su gracia\nHasta mil generaciones\nTu familia, Y tus hijos\nY los hijos, De tus hijos//\n\nSu presencia te acompane\nDondequiera que tu vayas\nQue te llene, Te rodee\nVa contigo Va contigo`},
+  {title:"Aceite Fresco",section:"Altar Call",artist:"",language:"Spanish only",lyrics:`VERSO\nEn mi corazon hay un clamor\nDeseo insaciable\nMe rindo a ti mi Dios\nEntregado ire en pos de ti\nBenditos los sedientos\nPues su sed\nSaciaras\n\nCORO\nLlena hoy mi lampara, Senor\nCon aceite de Tu Espiritu\nPara poder proclamarte\nY testigo yo sere, Jesus\n\nLlena hoy mi lampara, Senor\nCon aceite de Tu Espiritu\nPara poder proclamarte\nY testigo yo sere, Jesus\n\nPUENTE\nQuiero mas de tu aceite fresco\nTu me das, Tu me das de Tu poder\nVerlo caer anhelo yo\nHasta que el mundo Te haga a Ti su Senor`},
+  {title:"Destello De Tu Gloria",section:"Altar Call",artist:"",language:"Spanish only",lyrics:`Por un momento en tu presencia\npor un instante de tu amor\npor un destello de tu gloria\npor un minuto nada mas.\n\nTodo daria\nNo importaria\nLo que tenga que pasar\nLo que tenga que esperar.\n\nTengo hambre de ti\nde tu presencia\nde tu fragancia\nde tu poder\nHambre que duele\nque debilita\nque desespera\npor ti.\n\nMas de ti, menos de mi\nMas de ti, menos de mi\nMas de ti, Mas de ti, Cristo`},
+  {title:"En La Cruz / At The Cross",section:"Offering/Ofrenda",artist:"",language:"Bilingual (EN/ES)",lyrics:`CORO\n//En la cruz, en la cruz,\nyo primero vi la luz\ny las manchas de mi alma yo lave,\nfue alli por fe yo vi a Jesus\ny siempre feliz con El sere//\n\nCHORUS\n//At the cross, at the cross,\nwhere I first saw the Light\nAnd the burden of my heart rolled away,\nIt was there by Faith, I received my sight\nAnd now, I am happy everyday//`},
+  {title:"Mereces La Gloria / You Deserve The Glory",section:"Worship/Adoración",artist:"",language:"Bilingual (EN/ES)",lyrics:`VERSO\n//Mereces la gloria y la honra\nlevantamos nuestras manos\nExaltandote Senor//\n\nCORO\n//Altisimo, Milagroso Salvador\nNo hay nadien como tu\nNo hay nadien como tu//\n\nVERSE\n//You deserve the glory and the honor\nAnd we lift our hands in worship\nAs we praise Your holy name//\n\nCHORUS\n//For You are great, You do miracles so great\nThere is no one else like You, there is no one else like You//`},
+  {title:"El Sacrificio",section:"Worship/Adoración",artist:"",language:"Spanish only",lyrics:`VERSO\n//En la cruz del calvario\nFue clavado Jesus\nY todos mis pecados\nLos borro mi Jesus\n\nCORO\nEl sacrificio que\nJesus hizo en la cruz\nPor ti, por mi\nEs prueba de su amor\nQue hoy podemos obtener//`},
+  {title:"Cristo Vive",section:"Praise/Avivamiento",artist:"",language:"Spanish only",lyrics:`CORO\nCristo Vive, Cristo Vive\nCristo Vive\nCristo Vive, Cristo Vive\nCristo Vive\n\nVERSO\n// Mi Salvador No Esta Muerto\nEl No Esta En Una Tumba\nNo, No\nMi Salvador No Esta Muerto\nPues El Resucito //`},
+  {title:"Gozate Delante Del Senor",section:"Praise/Avivamiento",artist:"",language:"Spanish only",lyrics:`Gozate Delante Del Senor\nPorque El Es, Tu Rey\nGozate Delante Del Senor\nPorque El Es, Tu Rey\nEl Es, El Es, El Es, El Es Tu Rey\n\n// Gozate Delante Del Senor,\nPorque El Es, Tu Roca //\nEl Es, El Es, El Es, El Es Tu Roca\n\n// Gozate Delante Del Senor,\nPorque El Es, Tu Escudo //`},
+  {title:"El Poderoso De Israel",section:"Praise/Avivamiento",artist:"",language:"Spanish only",lyrics:`VERSO 1\nY de noche cantaremos celebrando su poder\nCon alegria de corazon\nComo el que va con la flauta al monte de Jehova\nCelebraremos su poder\n\nCORO\nEl es el poderoso de Israel\nEl poderoso de Israel\nSu voz se oira, nadie lo detendra\nAl poderoso de Israel\n\nEl es el poderoso de Israel\nEl poderoso de Israel\nSu voz se oira, nadie lo detendra\nAl poderoso de Israel\n\nVERSO 2\nY los ojos de los ciegos se abriran y ellos veran\nLos oidos de los sordos oiran\nEl cojo saltara, con el arpa danzara\nLa lengua de los mudos cantara\n\nCORO\nPorque es el poderoso de Israel\nEl poderoso de Israel\nSu voz se oira, nadie lo detendra\nAl poderoso de Israel`},
+  {title:"Vivo Para Adorarte",section:"Altar Call",artist:"",language:"Spanish only",lyrics:`Vivo para adorarte\nVivo para glorificarte\nTe alabo Senor\nPorque tu eres digno\nDe toda mi adoracion`},
+  {title:"Cuanto Mas Te Busco",section:"Altar Call",artist:"",language:"Bilingual (EN/ES)",lyrics:`VERSO 1
+Cuanto mas te busco
+Mas de ti encuentro
+Y al encontrarte, yo mas te amo
+
+CORO
+Quiero sentarme a tus pies
+Y de tu copa beber
+Y al recostarme sentir tus latidos
+Profundo es tu amor dificil de entender
+Y siento tu paz irresistible
+
+VERSO 1
+Cuanto mas te busco
+Mas de ti encuentro
+Y al encontrarte, yo mas te amo
+
+CORO
+//Quiero sentarme a tus pies
+Y de tu copa beber
+Y al recostarme sentir tus latidos
+Profundo es tu amor dificil de entender
+Y siento tu paz irresistible//
+
+CHORUS
+//I wanna sit at Your feet
+Drink from the cup in Your hand
+Lay back against You and breath, feel Your heart beat
+This love is so deep, it's more than I can stand
+I melt in Your peace, it's overwhelming//
+
+VERSE 1
+//The more I seek You
+The more I find You
+The more I find You
+The more I love You//
+
+CHORUS
+//I wanna sit at Your feet
+Drink from the cup in Your hand
+Lay back against You and breath, feel Your heart beat
+This love is so deep, it's more than I can stand
+I melt in Your peace, it's overwhelming//
+
+CORO
+//Quiero sentarme a tus pies
+Y de tu copa beber
+Y al recostarme sentir tus latidos
+Profundo es tu amor dificil de entender
+Y siento tu paz irresistible//
+
+VERSO 1
+Cuanto mas te busco
+Mas de ti encuentro
+Y al encontrarte, yo mas te amo
+
+CORO FINAL
+Quiero sentarme a tus pies
+Y de tu copa beber
+Y al recostarme sentir tus latidos
+Profundo es tu amor dificil de entender
+Y siento tu paz irresistible`},
+  {title:"Llenname Dios",section:"Altar Call",artist:"",language:"Spanish only",lyrics:`Llenname Dios con tu presencia\nLlenname Dios con tu poder\nLlenname Dios con tu amor\nLlenname Dios`},
+  {title:"Quita Todo De Mi",section:"Altar Call",artist:"",language:"Spanish only",lyrics:`Quita todo de mi\nLo que te ofenda\nQuita todo de mi\nLo que no te agrada\n\nPurificame Senor\nLimpiame Senor\nSantificame Senor\nHaz tu obra en mi`},
+,
+  {title:"Remolineando",section:"Praise/Avivamiento",artist:"",language:"Spanish only",lyrics:`VERSO 1\nHay Muchas Formas De Alabar Tu Nombre\nY De Exaltarte, Oh Jehova\nHay Muchas Formas De Glorificarte\nPero Ahora Lo Hare Asi\n\nVERSO 2\nSaco Mi Vida Del Anonimato\nMe Dio Corona Y Un Vestido Real\nAsi Es Jehova, Que Exalta Al Pequeno\nPor Causa De El Yo Me Hare Mas Vil\n\nCORO\n//Remolineando, Remolineando\nCelebrare A Jehova\nRemolineando, Remolineando\nMe Hare Mas Vil Por Causa De Jehova //`}
+,
+  {title:"Vine A Adorar A Dios",section:"Praise/Avivamiento",artist:"",language:"Bilingual (EN/ES)",lyrics:`//Vine a adorar a Dios\nvine a adorar a Dios\nVine a adorar Su Nombre\nVine a adorar a Dios//\n\n//El vino a mi vida\nun dia muy especial\ncambio mi corazon\nMe mostro un camino mejor\ny esta es la razon\npor la que digo que:\nVine a adorar a Dios//\n\nI just came to praise the Lord\nI just came to praise the Lord\nI just came to praise his Holy name\nI just came to praise the Lord\n\nHe came into my life one very special day\nHe came into my heart, and showed me a better way\nHe said He'd never leave\nI just came to praise the Lord`},
+  {title:"Alabad A Jehova",section:"Special",artist:"",language:"Spanish only",lyrics:`Alabad a Jehova, naciones todas, pueblos todos, alabadle\nPorque ha engrandecido sobre nosotros su misericordia\nY la verdad de Jehova es para siempre, aleluya, amen`},
+  {title:"Alla En El Cielo",section:"Special",artist:"",language:"Spanish only",lyrics:`/// Alla en el cielo ///\nNo habra mas llanto\nNi mas tristeza, ni mas dolor\nY cuando estemos los redimidos alla en el cielo\nAlabaremos al Senor`},
+  {title:"Asi Se Alaba A Dios",section:"Praise/Avivamiento",artist:"",language:"Spanish only",lyrics:`Asi asi asi, asi se alaba a Dios\nAsi asi asi, asi se alaba a Dios\n\nCon mucha alegria y gozo\nCon mucha alegria y gozo\nCon mucha alegria y gozo\nAsi se alaba a Dios`},
+  {title:"Si Alguien Te Pregunta",section:"Praise/Avivamiento",artist:"",language:"Spanish only",lyrics:`Si alguien te pregunta por ahi\nComo estas? Como estas?\n\nBendecido, muy bendecido\nBendecido porque Cristo\nvive en mi`},
+  {title:"Esta Obra No Va A Parar",section:"Praise/Avivamiento",artist:"",language:"Spanish only",lyrics:`Esta obra no va a parar, no va a parar\nEsta obra no va a parar, no va a parar\nEsta obra no va a parar, no va a parar\nporque esta dentro de mi corazon\n\nEl fuego cae cae, los males salen salen\nY los creyentes alaban al Senor`},
+  {title:"Este Es El Cristo",section:"Praise/Avivamiento",artist:"",language:"Spanish only",lyrics:`Este es el Cristo\nque yo predico\ny no me canso de predicar\n\nEl sana a los enfermos\nreprende a los demonios\ny calma la tempestad\n\n/// Y yo le alabare ///\ndiciendo Gloria a Dios`},
+  {title:"Solo Dios Hace Al Hombre Feliz",section:"Special",artist:"",language:"Spanish only",lyrics:`Solo Dios hace al hombre feliz\nSolo Dios hace al hombre feliz\n\n// La vida es nada todo se acaba, solo Dios hace al hombre feliz //`},
+  {title:"No Hay Dios Tan Grande",section:"Praise/Avivamiento",artist:"",language:"Spanish only",lyrics:`// No hay dios tan grande como tu, no lo hay, no lo hay //\n// No hay dios que pueda hacer las obras como las que haces tu //\n\n// No es con espada\nni con ejercitos\nmas con su Santo Espiritu //\nY esos montes se moveran\ncon su Santo Espiritu\n\nY esas almas se salvaran\nCon tu santo espiritu`},
+  {title:"Una Mirada De Fe",section:"Altar Call",artist:"",language:"Spanish only",lyrics:`// Una mirada de fe, una mirada de fe\nEs la que puede salvar al pecador //\n\nY si tu vienes a Cristo Jesus\nEl te perdonara\nPorque una mirada de fe\nEs la que puede salvar al pecador`},
+  {title:"Jesus Yo Te Amo",section:"Altar Call",artist:"",language:"Spanish only",lyrics:`// Jesus yo te amo //\nJesus yo te amo a Ti\nPor que tu me has salvado\nPor que tu me has salvado\nJesus yo te amo a Ti`},
+  {title:"Oh Que Regalo Precioso",section:"Altar Call",artist:"",language:"Spanish only",lyrics:`Oh que regalo precioso\nCristo me dio\nlleno mi alma de gozo\ny me salvo\nPor eso ahora yo canto\nen grande voz\ny puedo testificar de su grande amor`}
+,
+  {title:"Grita Canta Danza",section:"Praise/Avivamiento",artist:"",language:"Spanish only",lyrics:`Grita, Canta, Danza alegremente en su presencia\nGira, salta, dando vueltas para Cristo\nEl vive, vive para siempre\nEl es el Rey`},
+  {title:"No Hay Santo Como El Senor",section:"Praise/Avivamiento",artist:"",language:"Bilingual (EN/ES)",lyrics:`No Hay Santo Como El Senor\nNo Hay Santo Como El Senor\nNo Hay Santo Como El Senor\nNuestro Dios\n\nThere Is No One Like Our God\nThere Is No One Like Our God\nThere Is No One Like Our God\nLike Our God`}
+,
+  {title:"Yo Tengo Un Amigo Que Me Ama",section:"Special",artist:"",language:"Spanish only",lyrics:`Yo tengo un amigo que me ama\nYo tengo un amigo que me ama\nYo tengo un amigo que me ama\nY su nombre es Jesus\n\nEl me ama, El me ama\nYo se que El me ama a mi\nEl me ama, El me ama\nY su nombre es Jesus`},
+  {title:"Mis Pecados Son Borrados Ya",section:"Special",artist:"",language:"Spanish only",lyrics:`Mis pecados son borrados ya\nMis pecados son borrados ya\nMis pecados son borrados ya\nEn el nombre de Jesus\n\nSoy bautizado en el nombre de Jesus\nComo manda El Salvador\nSoy bautizado en el nombre de Jesus\nComo manda El Salvador`}
+,
+  {title:"Dame De Beber",section:"Worship/Adoración",artist:"",language:"Spanish only",lyrics:`VERSO\n// Quiero estar en tu presencia\nY poderte contemplar\nNecesito estar contigo\nNecesito adorar //\n\nCORO\n// Dame de beber\nDe tu manantial\nDame de beber\nNecesito mas //`},
+  {title:"Hay Momentos",section:"Worship/Adoración",artist:"",language:"Spanish only",lyrics:`VERSO\nHay momentos\nQue las palabras no alcanzan\nPara decirte lo que siento\nBendito Salvador\n\nCORO\nYo te agradezco\nPor todo lo que has hecho\nPor todo lo que haces\nY todo lo que haras`}
+];
+
+let library = [], setlist = [], viewIdx = -1, editIdx = -1;
+
+function lsGet(k){try{const v=localStorage.getItem(k);return v?JSON.parse(v):null;}catch{return null;}}
+function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch{}}
+
+function init(){
+  try {
+    // Always start from MASTER_LIBRARY to ensure all songs are present
+    const master = MASTER_LIBRARY.map(s => ({...s, addedDate: s.addedDate||'2026-05-29'}));
+    // Merge in any custom songs the user added manually
+    let saved = null;
+    try { saved = lsGet('worship-library-v4'); } catch(e){}
+    if(saved && saved.length > 0){
+      const masterTitles = new Set(master.map(s=>s.title.toLowerCase()));
+      const custom = saved.filter(s => !masterTitles.has(s.title.toLowerCase()));
+      library = [...master, ...custom];
+    } else {
+      library = master;
+    }
+    lsSet('worship-library-v4', library);
+  } catch(e) {
+    // Fallback — load master directly if anything fails
+    library = MASTER_LIBRARY.slice();
+  }
+  loadCustomMedleys();
+  document.getElementById('svc-date').value = new Date().toISOString().split('T')[0];
+  renderLibrary();
+  renderStats();
+}
+
+function resetLibrary(){
+  if(!confirm('Reset library to all songs from your Drive docs? This will overwrite any custom changes.')) return;
+  library = MASTER_LIBRARY.map(s => ({...s, addedDate: s.addedDate||'2026-05-29'}));
+  lsSet('worship-library-v4', library);
+  renderLibrary(); renderStats();
+  setStatus(`Library reset — ${library.length} songs loaded.`, 'success');
+}
+
+function setStatus(msg,type){
+  const el=document.getElementById('status');
+  el.textContent=msg; el.className='status '+type;
+  if(type==='success') setTimeout(()=>el.style.display='none', 4000);
+}
+
+// ── HISTORICAL MEDLEYS from all your Drive docs ─────────────────────────────
+const MEDLEYS = [
+  // MEDLEYS (songs that flow directly into each other)
+  {type:'medley', songs:['Celebra Victorioso','Remolineando','El Poderoso De Israel','Grita Canta Danza','No Hay Santo Como El Senor'], note:'Praise medley — Celebra Victorioso full sequence ending with CELEBRA VICTORIOSO finale, drop into Remolineando, flow into El Poderoso De Israel, then Grita Canta Danza, close with No Hay Santo Como El Senor as an extra tag.'},
+  {type:'medley', songs:['Celebra Victorioso','Remolineando','Gozate Delante Del Senor','Cristo Vive'], note:'Bilingual praise medley — Celebra Victorioso runs through its full sequence ending with the CELEBRA VICTORIOSO finale, drop straight into Remolineando, then ease into Gozate, close with Cristo Vive building from soft into full declaration. Documented in your setlist docs.'},
+  {type:'medley', songs:['Holy Ghost',"Can't Stop Praising His Name"], note:'Frequently opened services together — Holy Ghost flows straight into Can\'t Stop. Used in 5/31/26, 10/5/25, 9/21 setlists.'},
+  {type:'medley', songs:['Sera Llena La Tierra','Levantate Señor','Yo Celebraré','Hosanna Al Altísimo','Cantaré Al Señor Por Siempre'], note:'Jubilo Medley — this full sequence appears in 4/6/25 and 3/29/26 setlists. All Spanish, high energy praise.'},
+  {type:'medley', songs:['Worthy / Digno','Worthy of It All / Digno Eres Tú'], note:'Always paired together — slow down between them. Worthy flows into Worthy of It All. Used across multiple setlists.'},
+  {type:'medley', songs:['Always On Time / Siempre A Tiempo','Same God / El Mismo Dios'], note:'Always On Time runs full bilingual sequence ending soft, flows into Same God (Bridge → Puente 1 → Puente 2 → Bridge 2), then Bridge 2 transitions back into Always On Time Bridge → Chorus → TAG to close.'},
+  {type:'medley', songs:['Freedom Medley / Libre',"Can't Stop Praising His Name"], note:'Freedom Medley transitions into "He\'s Alive" chant, then into How Great Is Our God. High energy praise opener.'},
+  {type:'medley', songs:['Grande Es El Amor de Dios','Te Alabo Te Alabo','Santo Santo Santo','Bendito Sea El Señor'], note:'Grande Es El Amor Medley — these four flow together in the dedicated medley doc.'},
+  {type:'medley', songs:['What A God','Better Is One Day / Mejor Es Un Día'], note:'Better Is One Day flows back into What A God chorus in the 9/21 setlist.'},
+  {type:'medley', songs:['Yeshua','Te Exaltamos / When I Speak Your Name','Quebranta Mi Corazón','Pablo Y Silas'], note:'Altar call sequence from 9/1/24 — deep worship flow, Yeshua into Te Exaltamos into Quebranta into Pablo y Silas.'},
+  {type:'medley', songs:['La Sunamita / Beloved','Tuyo Es El Reino / Yours Is The Kingdom'], note:'Paired in 9/1/24 setlist — intimate worship flowing into declaration.'},
+  {type:'medley', songs:['Goodness Of God / Bondad De Dios','Beautiful Name / Majestuoso'], note:'Used together in 1/12 setlist — thanksgiving into exaltation of the Name.'},
+  {type:'medley', songs:['Devuélveme El Gozo','I Give Myself Away / Me Entrego A Ti Señor','Ven Espíritu Ven / Come Holy Spirit'], note:'Altar call trio from 1/12 setlist — repentance, surrender, then inviting the Spirit.'},
+
+  // NATURAL FLOWS (songs that pair well in same section)
+  {type:'flow', songs:['Mighty Name of Jesus','I Speak Jesus'], note:'Always used back-to-back in Worship section. Appear together in 5/31/26, 3/29/26, and other setlists.'},
+  {type:'flow', songs:['Mighty Name of Jesus','I Speak Jesus','How Great Is Our God'], note:'This trio is your most repeated Worship block — used in at least 3 different setlists.'},
+  {type:'flow', songs:['Firm Foundation / Roca Firme','Great Are You Lord / Grande Eres Dios','Reckless Love / Amor Sin Condición'], note:'Worship block from 4/6/25 setlist — faith, praise, then the overwhelming love of God.'},
+  {type:'flow', songs:['Que Se Abra El Cielo / Let the Heavens Open','Tu Presencia Es El Cielo / Your Presence is Heaven'], note:'Paired in Sunday 04/05 setlist — both focus on God\'s presence, one as invitation, one as declaration.'},
+  {type:'flow', songs:['Nada Es Imposible / Nothing Is Impossible','Que Se Llene Tu Casa / Fill Your House'], note:'Paired as Praise opener in 9/1/24 setlist — faith declaration into invitation for God\'s glory.'},
+  {type:'flow', songs:['Cielos Abiertos / Open Heavens','King of Glory / Rey De Gloria'], note:'Worship pair from 9/1/24 — both about heaven opening and God\'s presence entering.'},
+  {type:'flow', songs:['Hosanna Al Rey','Los Muros Caerán / The Walls Are Falling','Ya Se Oye El Shofar / Come Oh Lord'], note:'Praise trio from 1/4/26 — bold declaration opening that builds energy progressively.'},
+  {type:'flow', songs:['You Are Good / Eres Fiel','Nombre No Hay / No Other Name'], note:'Praise pair from 5/18/25 — faithfulness of God into exaltation of His name.'},
+  {type:'flow', songs:['Covenant Keeping God','What A God'], note:'Worship pair from 5/18/25 — both center on the nature and character of God.'},
+  {type:'flow', songs:['Santo Es El Que Vive / Holy Is The One Who Lives','Llévame Al Lugar Santísimo','Tu Nombre Es Santo'], note:'Altar call trio from 5/18/25 — holiness theme throughout, building reverence.'},
+  {type:'flow', songs:['Always On Time / Siempre A Tiempo','Creo En Ti / I Believe','Wrap Me In Your Arms'], note:'Altar call sequence from 10/5/25 setlist.'},
+  {type:'flow', songs:['Gracias / Thank You Jesus','A Ti Me Rindo / I Surrender'], note:'Altar call pair from 1/4/26 and 9/21 — gratitude flowing into full surrender.'},
+  {type:'flow', songs:['El Espíritu De Dios / Spirit of the Lord','Dios Manda Lluvia'], note:'Both invite the Holy Spirit — natural pair for altar call or transition into prayer time.'},
+  {type:'flow', songs:['Way Maker / Milagroso','Fortaleza Divina'], note:'Paired in 9/21 setlist under Worship — miracle-working God into strength He provides.'},
+  {type:'flow', songs:['Espíritu Santo Ven / Holy Spirit Come','Mesías / Messiah','Yeshua','Quiero Conocer A Jesús / I Want to Know Jesus','Ven Señor / Come Like You Promised'], note:'Deep altar call sequence from Sunday 01/26 — a full Spirit-led altar flow.'},
+];
+
+function renderMedley(filter){
+  filter = filter || '';
+  var list = document.getElementById('medley-list');
+  if(!list) return;
+  var html = '';
+  var shown = 0;
+
+  // Hardcoded medleys
+  for(var ri=0; ri<MEDLEYS.length; ri++){
+    var p = MEDLEYS[ri];
+    if(filter && !p.songs.some(function(s){ return s.toLowerCase().indexOf(filter.toLowerCase()) > -1; })) continue;
+    shown++;
+    var typeColor = p.type==='medley' ? '#3c3489' : '#085041';
+    var typeBg = p.type==='medley' ? '#eeedfe' : '#e1f5ee';
+    var typeLabel = p.type==='medley' ? 'Medley' : 'Natural flow';
+    var songsHtml = '';
+    for(var j=0; j<p.songs.length; j++){
+      songsHtml += '<strong style="font-size:13px;font-family:system-ui,sans-serif;color:#1a1a1a">'+p.songs[j]+'</strong>';
+      if(j < p.songs.length-1) songsHtml += '<span style="color:#9a9a9a;margin:0 4px"> &rarr; </span>';
+    }
+    html += '<div style="padding:12px 0;border-bottom:0.5px solid #e0dfdb;">'
+      + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap">'
+      + '<span style="font-size:11px;padding:2px 8px;border-radius:6px;background:'+typeBg+';color:'+typeColor+';font-family:system-ui,sans-serif">'+typeLabel+'</span>'
+      + '<div style="line-height:1.8">'+songsHtml+'</div>'
+      + '</div>'
+      + '<p style="font-size:12px;color:#6b6b6b;font-family:system-ui,sans-serif;line-height:1.5;margin-bottom:8px">'+p.note+'</p>'
+      + '<button style="font-size:12px;padding:5px 12px;cursor:pointer" onclick="addMedleyByIndex('+ri+')">+ Add all to setlist</button>'
+      + '</div>';
+  }
+
+  // Custom medleys (saved by user)
+  for(var ci=0; ci<customMedleys.length; ci++){
+    var cp = customMedleys[ci];
+    if(filter && !cp.songs.some(function(s){ return s.toLowerCase().indexOf(filter.toLowerCase()) > -1; })) continue;
+    shown++;
+    var cSongsHtml = '';
+    for(var cj=0; cj<cp.songs.length; cj++){
+      cSongsHtml += '<strong style="font-size:13px;font-family:system-ui,sans-serif;color:#1a1a1a">'+cp.songs[cj]+'</strong>';
+      if(cj < cp.songs.length-1) cSongsHtml += '<span style="color:#9a9a9a;margin:0 4px"> &rarr; </span>';
+    }
+    html += '<div style="padding:12px 0;border-bottom:0.5px solid #e0dfdb;">'
+      + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap">'
+      + '<span style="font-size:11px;padding:2px 8px;border-radius:6px;background:#faeeda;color:#633806;font-family:system-ui,sans-serif">My Medley</span>'
+      + '<span style="font-size:13px;font-weight:600;font-family:system-ui,sans-serif;color:#1a1a1a">'+cp.name+'</span>'
+      + '</div>'
+      + '<div style="line-height:1.8;margin-bottom:6px">'+cSongsHtml+'</div>'
+      + '<p style="font-size:12px;color:#6b6b6b;font-family:system-ui,sans-serif;line-height:1.5;margin-bottom:8px">'+cp.note+'</p>'
+      + '<div style="display:flex;gap:8px">'
+      + '<button style="font-size:12px;padding:5px 12px;cursor:pointer" onclick="addCustomMedleyToSetlist('+ci+')">+ Add all to setlist</button>'
+      + '<button style="font-size:12px;padding:5px 12px;cursor:pointer;color:#791f1f;border-color:rgba(0,0,0,0.1)" onclick="deleteCustomMedley('+ci+')">Delete</button>'
+      + '</div>'
+      + '</div>';
+  }
+
+  if(!shown) list.innerHTML = '<div style="padding:1.5rem 0;text-align:center;font-size:13px;color:#9a9a9a;font-family:system-ui,sans-serif">No medley found for that song.</div>';
+  else list.innerHTML = html;
+}
+
+
+function addMedleyByIndex(ri){
+  var p = MEDLEYS[ri];
+  if(!p){ setStatus('Medley not found.','error'); return; }
+  if(!library || library.length === 0) library = MASTER_LIBRARY.slice();
+  var added = 0;
+  for(var k=0; k<p.songs.length; k++){
+    var title = p.songs[k];
+    var match = null;
+    for(var m=0; m<library.length; m++){
+      if(library[m].title.toLowerCase() === title.toLowerCase()){ match = library[m]; break; }
+    }
+    if(!match){
+      var partial = title.toLowerCase().split('/')[0].trim();
+      for(var m=0; m<library.length; m++){
+        if(library[m].title.toLowerCase().indexOf(partial) > -1){ match = library[m]; break; }
+      }
+    }
+    if(match) setlist.push(JSON.parse(JSON.stringify(match)));
+    else setlist.push({title:title,section:'Praise/Avivamiento',artist:'',language:'',lyrics:''});
+    added++;
+  }
+  renderSetlist();
+  switchMain('setlist');
+  setStatus('Added '+added+' songs to setlist.','success');
+}
+
+// ── CUSTOM MEDLEY BUILDER ─────────────────────────────────────────────────────
+var CUSTOM_MEDLEY_KEY = 'worship-custom-medleys-v1';
+var customMedleys = [];
+var builderSongs = []; // songs currently added to the builder form
+
+function loadCustomMedleys(){
+  try { customMedleys = JSON.parse(localStorage.getItem(CUSTOM_MEDLEY_KEY) || '[]'); }
+  catch(e){ customMedleys = []; }
+}
+
+function saveCustomMedleysToStorage(){
+  localStorage.setItem(CUSTOM_MEDLEY_KEY, JSON.stringify(customMedleys));
+}
+
+function toggleMedleyBuilder(){
+  var form = document.getElementById('medley-builder-form');
+  var btn = document.getElementById('medley-builder-toggle');
+  var open = form.style.display === 'none';
+  form.style.display = open ? 'block' : 'none';
+  btn.textContent = open ? '− Close' : '+ New';
+  if(open){
+    builderSongs = [];
+    document.getElementById('new-medley-name').value = '';
+    document.getElementById('new-medley-note').value = '';
+    document.getElementById('builder-song-search').value = '';
+    renderBuilderSongPicker();
+    renderBuilderSelected();
+  }
+}
+
+function cancelMedleyBuilder(){
+  document.getElementById('medley-builder-form').style.display = 'none';
+  document.getElementById('medley-builder-toggle').textContent = '+ New';
+}
+
+function renderBuilderSongPicker(){
+  var q = (document.getElementById('builder-song-search').value || '').toLowerCase();
+  var src = library && library.length ? library : MASTER_LIBRARY;
+  var filtered = src.filter(function(s){
+    return !q || s.title.toLowerCase().indexOf(q) > -1;
+  }).slice(0, 40);
+  var html = '';
+  filtered.forEach(function(s){
+    var alreadyAdded = builderSongs.some(function(b){ return b.title === s.title; });
+    html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 10px;border-bottom:0.5px solid rgba(0,0,0,0.08);cursor:pointer" '
+      + 'onmouseover="this.style.background=\'#eeedfe\'" onmouseout="this.style.background=\'\'" '
+      + 'onclick="addBuilderSong('+JSON.stringify(s.title)+')">'
+      + '<span style="font-size:13px;font-family:system-ui,sans-serif;color:#1a1a1a">'+s.title+'</span>'
+      + (alreadyAdded ? '<span style="font-size:11px;color:#4a3fa0;font-family:system-ui,sans-serif">Added</span>' : '<span style="font-size:18px;color:#9a9a9a">+</span>')
+      + '</div>';
+  });
+  if(!html) html = '<div style="padding:10px;font-size:13px;color:#9a9a9a;font-family:system-ui,sans-serif">No songs found.</div>';
+  document.getElementById('builder-song-picker').innerHTML = html;
+}
+
+function addBuilderSong(title){
+  if(builderSongs.some(function(b){ return b.title === title; })) return;
+  var src = library && library.length ? library : MASTER_LIBRARY;
+  var match = src.find(function(s){ return s.title === title; });
+  builderSongs.push(match ? JSON.parse(JSON.stringify(match)) : {title:title,section:'Praise/Avivamiento',artist:'',language:'',lyrics:''});
+  renderBuilderSelected();
+  renderBuilderSongPicker();
+}
+
+function removeBuilderSong(idx){
+  builderSongs.splice(idx, 1);
+  renderBuilderSelected();
+  renderBuilderSongPicker();
+}
+
+function moveBuilderSong(idx, dir){
+  var to = idx + dir;
+  if(to < 0 || to >= builderSongs.length) return;
+  var tmp = builderSongs[idx];
+  builderSongs[idx] = builderSongs[to];
+  builderSongs[to] = tmp;
+  renderBuilderSelected();
+}
+
+function renderBuilderSelected(){
+  var el = document.getElementById('builder-selected-songs');
+  if(!builderSongs.length){
+    el.innerHTML = '<span id="builder-no-songs" style="color:#9a9a9a">No songs selected yet — search and click above.</span>';
+    return;
+  }
+  var html = '';
+  builderSongs.forEach(function(s, i){
+    html += '<div style="display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:0.5px solid rgba(0,0,0,0.06)">'
+      + '<span style="flex:1;font-size:13px;font-family:system-ui,sans-serif;color:#1a1a1a">'+(i+1)+'. '+s.title+'</span>'
+      + '<button onclick="moveBuilderSong('+i+',-1)" style="font-size:12px;padding:2px 6px;color:#9a9a9a;border-color:rgba(0,0,0,0.1)" title="Move up">↑</button>'
+      + '<button onclick="moveBuilderSong('+i+',1)" style="font-size:12px;padding:2px 6px;color:#9a9a9a;border-color:rgba(0,0,0,0.1)" title="Move down">↓</button>'
+      + '<button onclick="removeBuilderSong('+i+')" style="font-size:12px;padding:2px 6px;color:#791f1f;border-color:rgba(0,0,0,0.1)" title="Remove">×</button>'
+      + '</div>';
+  });
+  el.innerHTML = html;
+}
+
+function saveCustomMedley(){
+  var name = (document.getElementById('new-medley-name').value || '').trim();
+  if(!name){ setStatus('Give the medley a name first.','error'); return; }
+  if(!builderSongs.length){ setStatus('Add at least one song.','error'); return; }
+  var note = (document.getElementById('new-medley-note').value || '').trim();
+  customMedleys.push({
+    name: name,
+    songs: builderSongs.map(function(s){ return s.title; }),
+    note: note || 'Custom medley',
+    type: 'medley',
+    custom: true
+  });
+  saveCustomMedleysToStorage();
+  cancelMedleyBuilder();
+  renderMedley();
+  setStatus('Medley "'+name+'" saved!','success');
+}
+
+function deleteCustomMedley(ci){
+  if(!confirm('Delete this custom medley?')) return;
+  customMedleys.splice(ci, 1);
+  saveCustomMedleysToStorage();
+  renderMedley();
+  setStatus('Custom medley deleted.','info');
+}
+
+function addCustomMedleyToSetlist(ci){
+  var p = customMedleys[ci];
+  if(!p){ setStatus('Medley not found.','error'); return; }
+  if(!library || library.length === 0) library = MASTER_LIBRARY.slice();
+  var added = 0;
+  for(var k=0; k<p.songs.length; k++){
+    var title = p.songs[k];
+    var match = null;
+    for(var m=0; m<library.length; m++){
+      if(library[m].title.toLowerCase() === title.toLowerCase()){ match = library[m]; break; }
+    }
+    if(!match){
+      var partial = title.toLowerCase().split('/')[0].trim();
+      for(var m=0; m<library.length; m++){
+        if(library[m].title.toLowerCase().indexOf(partial) > -1){ match = library[m]; break; }
+      }
+    }
+    setlist.push(match ? JSON.parse(JSON.stringify(match)) : {title:title,section:'Praise/Avivamiento',artist:'',language:'',lyrics:''});
+    added++;
+  }
+  renderSetlist();
+  switchMain('setlist');
+  setStatus('Added '+added+' songs to setlist.','success');
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
+function addSongsToSetlist(songsJson){
+  let songs;
+  try { songs = JSON.parse(songsJson.replace(/&quot;/g,'"')); } catch(e){ songs = songsJson; }
+  if(!library || library.length === 0) library = MASTER_LIBRARY.map(s=>({...s}));
+  let added = 0;
+  songs.forEach(songTitle => {
+    let match = library.find(s => s.title.toLowerCase() === songTitle.toLowerCase());
+    if(!match) match = library.find(s => s.title.toLowerCase().includes(songTitle.toLowerCase().split('/')[0].trim()));
+    setlist.push(match ? {...match} : {title:songTitle, section:'Praise/Avivamiento', artist:'', language:'', lyrics:''});
+    added++;
+  });
+  renderSetlist();
+  switchMain('setlist');
+  setStatus('Added '+added+' songs to setlist.', 'success');
+}
+
+function addMedleyToSetlist(i){
+  const medley = MEDLEYS[i];
+  if(!medley){ setStatus('Could not find medley. Try resetting the library.','error'); return; }
+  // Make sure library is loaded
+  if(!library || library.length === 0){
+    library = MASTER_LIBRARY.map(s=>({...s}));
+  }
+  let added = 0;
+  medley.songs.forEach(songTitle => {
+    // Try exact match first, then partial match
+    let match = library.find(s => s.title.toLowerCase() === songTitle.toLowerCase());
+    if(!match) match = library.find(s => s.title.toLowerCase().includes(songTitle.toLowerCase().split('/')[0].trim()));
+    if(match){
+      setlist.push({...match});
+    } else {
+      setlist.push({title: songTitle, section:'Praise/Avivamiento', artist:'', language:'', lyrics:''});
+    }
+    added++;
+  });
+  renderSetlist();
+  switchMain('setlist');
+  setStatus(`Added ${added} songs to setlist.`, 'success');
+}
+
+function getAISuggestions(){
+  const q = document.getElementById('medley-search').value.trim();
+  if(!q){ setStatus('Type a song name first.','error'); return; }
+  // Filter medley list below
+  renderMedley(q);
+  // Build copy-prompt box
+  const el = document.getElementById('ai-suggestions');
+  const songList = library.map(s=>s.title).join(', ');
+  const promptText = 'Suggest 2-3 songs from our library that pair well with "' + q + '" as a medley or natural flow for our bilingual (EN/ES) worship service. Only explain where to transition and how — no extra commentary. Library: ' + songList;
+  el.innerHTML =
+    '<div style="background:#e6f1fb;border-radius:8px;padding:12px 14px;font-family:system-ui,sans-serif;">' +
+      '<div style="font-size:12px;color:#0c447c;margin-bottom:8px;font-weight:500">Copy this prompt and paste it into AI chat:</div>' +
+      '<textarea id="medley-prompt-ta" readonly style="width:100%;font-size:12px;font-family:system-ui,sans-serif;border:0.5px solid #b3d4f5;border-radius:6px;padding:8px;background:#fff;color:#1a1a1a;line-height:1.5;resize:none;height:80px">' + promptText.replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</textarea>' +
+      '<button onclick="copyMedleyPrompt()" style="margin-top:8px;font-size:12px;padding:5px 14px" id="medley-copy-btn">Copy</button>' +
+    '</div>';
+}
+
+function copyMedleyPrompt(){
+  const ta = document.getElementById('medley-prompt-ta');
+  const btn = document.getElementById('medley-copy-btn');
+  ta.select();
+  navigator.clipboard.writeText(ta.value)
+    .then(()=>{ btn.textContent='✓ Copied!'; setTimeout(()=>btn.textContent='Copy',2500); })
+    .catch(()=>{ document.execCommand('copy'); btn.textContent='✓ Copied!'; setTimeout(()=>btn.textContent='Copy',2500); });
+}
+
+// ── EVENTS DATA ───────────────────────────────────────────────────────────────
+const EVENTS = {
+  marriage:{label:'Marriage Conference',description:'Focus on covenant love, God as the foundation of marriage, unity, and surrender. Songs should reflect deep commitment, intimacy with God, and the love He has for His people — mirroring the love between spouses.',keywords:['amor','love','covenant','pacto','rindo','surrender','presencia','presence','eterno','eternal','deseo','beloved','sunamita','yeshua','reckless'],songs:['Deseo Eterno','La Sunamita / Beloved','Reckless Love / Amor Sin Condición','Covenant Keeping God','A Ti Me Rindo / I Surrender','Tu Presencia Es El Cielo / Your Presence is Heaven','En Tí Confía Mi Corazón','Tuyo Es El Reino / Yours Is The Kingdom','Yeshua','Quebranta Mi Corazón','How Great Is Our God'],tip:"Open with praise celebrating God's faithfulness, move into worship focused on His love, and close the altar with surrender and covenant songs."},
+  friends:{label:"Friend's Day",description:'An outreach-focused Sunday with guests who may be new to worship. Songs should be accessible, celebratory, and welcoming — with a clear gospel message.',keywords:['good','bueno','great','grande','praise','alabar','friend','amigo','joy','gozo','freedom','libre'],songs:['Eres Mi Amigo Fiel / Friend of God','How Great Is Our God','Goodness Of God / Bondad De Dios','Vamos A Cantar','You Are Good / Eres Fiel','Nada Es Imposible / Nothing Is Impossible','Freedom Medley / Libre','Hay Libertad / There Is Joy','Beautiful Name / Majestuoso','No Longer Slaves / Ya No Soy Esclavo','Mira Lo Que Hizo Dios / Look What The Lord Has Done'],tip:"Keep it energetic and accessible. Use bilingual songs so both longtime members and new guests feel included. End with a clear altar call."},
+  kids:{label:"Kid's Day",description:'Fun, high-energy, and joyful. Songs with movement, repetition, and simple memorable lyrics work best.',keywords:['gozo','joy','hijo','child','freedom','libre','praise','alabar','victoria','victory','viva'],songs:['Yo Tengo Gozo','Viva La Fe','Alabaré','Hay Poder / There Is Power','Freedom Medley / Libre','Vamos A Cantar','Eres Mi Amigo Fiel / Friend of God','Hosanna Al Altísimo','Yo Celebraré','Victoria La Victoria Mía Es / Victory The Victory Is Mine','Mira Lo Que Hizo Dios / Look What The Lord Has Done'],tip:"Favor call-and-response songs and ones with movement. Keep transitions fast. End with something that invites children to personally respond to God."},
+  mothers:{label:"Mother's Day",description:"Honor mothers and celebrate God's love, faithfulness, and care — paralleling the nurturing love of a mother.",keywords:['bueno','good','fiel','faithful','amor','love','gracias','thank','rindo','surrender','brazos','arms','hijo','child'],songs:['Goodness Of God / Bondad De Dios','Gracias / Thank You Jesus','Tu Fidelidad / Your Faithfulness','No Longer Slaves / Ya No Soy Esclavo','Grande Es El Amor de Dios','Dios Ha Sido Bueno / God Has Been Good','A Ti Me Rindo / I Surrender','En Tí Confía Mi Corazón','How Great Is Our God','Reckless Love / Amor Sin Condición','Cristo Yo Te Amo'],tip:"Start celebratory and warm, move into deep gratitude and worship, and close with a tender altar moment."},
+  fathers:{label:"Father's Day",description:"Celebrate God as the perfect Father. Songs about His protection, strength, faithfulness, and love as a father.",keywords:['padre','father','fiel','faithful','fortaleza','strength','hijo','child','bueno','good','amor','love'],songs:['No Longer Slaves / Ya No Soy Esclavo','Goodness Of God / Bondad De Dios','Fortaleza Divina','Tu Fidelidad / Your Faithfulness','Dios Ha Sido Bueno / God Has Been Good','Always On Time / Siempre A Tiempo','Same God / El Mismo Dios','Grande Es El Amor de Dios','Ven Señor / Come Like You Promised','En Tí Confía Mi Corazón','What A God'],tip:"Always On Time and Same God are especially powerful for honoring both God as Father and earthly dads."},
+  youth:{label:'Youth Day',description:"High energy, bold, and Spirit-filled. Declare freedom, break chains, and invite the fire of the Holy Spirit.",keywords:['fire','fuego','freedom','libre','ghost','spirit','espiritu','power','poder','break','rompe','holy','santo','revival','avivamiento'],songs:['Holy Ghost',"Can't Stop Praising His Name",'Freedom Medley / Libre','Nada Es Imposible / Nothing Is Impossible','But God / Más Dios','Mighty Name of Jesus','I Speak Jesus','Haz Llover / Let It Rain','Los Muros Caerán / The Walls Are Falling','Pablo Y Silas','Hay Sanidad Aquí / Healing Is Here','Victoria La Victoria Mía Es / Victory The Victory Is Mine'],tip:"Open with the Holy Ghost → Can't Stop medley. Pablo y Silas is perfect for a youth altar."},
+  baptism:{label:'Baptism Day',description:'Celebrate new life in Christ, dying to the old self, and rising in the new. Songs about being washed, freedom, and new identity as children of God.',keywords:['washed','lavado','libre','freedom','nuevo','new','bautiz','bapti','hijo','child','seguir','follow','clean','limpio'],songs:['Washed / Lavado','No Longer Slaves / Ya No Soy Esclavo','Soy Bautizado','He Decidido Seguir A Cristo / I Have Decided','Freedom Medley / Libre','Hay Libertad / There Is Joy','Beautiful Name / Majestuoso','Holy Ghost','Santo Es El Que Vive / Holy Is The One Who Lives','Ven Espíritu Ven / Come Holy Spirit','Mira Lo Que Hizo Dios / Look What The Lord Has Done'],tip:"Washed / Lavado is your signature baptism song. He Decidido and Soy Bautizado are classic for this moment."},
+  florAzul:{label:'Flor Azul — Missionary Service',description:"A missionary service supporting global outreach. Songs about God's glory filling the earth, nations worshipping, and being sent.",keywords:['tierra','earth','naciones','nations','gloria','glory','llena','fill','nombre','name','mundo','world'],songs:['Sera Llena La Tierra','Cantaré Al Señor Por Siempre','Nombre No Hay / No Other Name','How Great Is Our God','Mighty Name of Jesus','Hosanna Al Rey','Los Muros Caerán / The Walls Are Falling','Glorious','What A God','Te Exaltamos / When I Speak Your Name','Que Se Llene Tu Casa / Fill Your House'],tip:"Sera Llena La Tierra is a natural opener for any missionary service — its lyrics speak directly to the harvest."},
+  preciosa:{label:'Preciosa Semilla — Missionary Service',description:'A missionary service focused on sowing seeds of faith. Songs about planting, harvest, and trusting in what God is doing even when unseen.',keywords:['tierra','earth','semilla','seed','cosecha','harvest','gloria','glory','fiel','faithful','fe','faith','espera','wait','obrando','working'],songs:['Sera Llena La Tierra','Way Maker / Milagroso','Always On Time / Siempre A Tiempo','Tu Fidelidad / Your Faithfulness','Covenant Keeping God','Same God / El Mismo Dios','Goodness Of God / Bondad De Dios','Hay Una Esperanza','Fortaleza Divina','En Tí Confía Mi Corazón','Glorious'],tip:"Way Maker is powerful here — 'Even when I don't see it You're working' speaks directly to the faith it takes to keep sowing seeds."},
+  alcanzando:{label:'Alcanzando América — Missionary Service',description:'A bilingual outreach-focused service with a heart for reaching the Americas. Bold, evangelistic worship that declares God\'s power to save.',keywords:['poder','power','salva','save','libre','free','nombre','name','gloria','glory','naciones','nations','testimonio','testimony'],songs:["Can't Stop Praising His Name",'Nombre No Hay / No Other Name','Beautiful Name / Majestuoso','Mighty Name of Jesus','I Speak Jesus','But God / Más Dios','Nada Es Imposible / Nothing Is Impossible','Victoria La Victoria Mía Es / Victory The Victory Is Mine','Mira Lo Que Hizo Dios / Look What The Lord Has Done','No Longer Slaves / Ya No Soy Esclavo','Glorious'],tip:"But God / Más Dios and Mira Lo Que Hizo Dios are great testimony-focused songs perfect for an evangelistic setting."},
+  offering:{label:'Offering Songs',description:'Songs specifically suited for the offering moment — themes of generosity, gratitude, giving back to God, and His provision.',keywords:['lavado','washed','glorioso','glorious','llena','fill','libertad','liberty','gracias','thank','bueno','good','ofrenda','offering'],songs:['Washed / Lavado','Glorious','Que Se Llene Tu Casa / Fill Your House','Hay Libertad / There Is Joy','Esta Noche Nos Vamos A Gozar','Eres Todopoderoso','Goodness Of God / Bondad De Dios','Gracias / Thank You Jesus','Dios Ha Sido Bueno / God Has Been Good','Grande Es El Amor de Dios','Freedom Medley / Libre'],tip:"Glorious, Washed, and Hay Libertad are your most-used offering songs. Keep energy joyful — the offering should feel like worship, not an obligation."},
+  thanksgiving:{label:'Thanksgiving Day',description:"Gratitude and recognition of God's faithfulness throughout the year. Songs of thankfulness, declaring His goodness, and remembering all He has done.",keywords:['gracias','thank','bueno','good','fiel','faithful','amor','love','grande','great','bondad','goodness','ha sido'],songs:['Gracias / Thank You Jesus','Goodness Of God / Bondad De Dios','Dios Ha Sido Bueno / God Has Been Good','Tu Fidelidad / Your Faithfulness','Same God / El Mismo Dios','Grande Es El Amor de Dios','How Great Is Our God','Always On Time / Siempre A Tiempo','What A God','Mira Lo Que Hizo Dios / Look What The Lord Has Done','Bendito Sea El Señor / Holy Is The Lord'],tip:"Dios Ha Sido Bueno, Gracias, and Mira Lo Que Hizo Dios form a powerful thanksgiving trio. Consider sharing testimonies between songs."},
+  newYear:{label:'New Year Celebration',description:'Celebrate a new season with God. Songs of hope, renewal, fresh fire, and declaring what God will do in the coming year.',keywords:['nuevo','new','fuego','fire','esperanza','hope','renovar','renew','avivamiento','revival','llover','rain','espiritu','spirit'],songs:['Holy Ghost','Haz Llover / Let It Rain','Nada Es Imposible / Nothing Is Impossible','Way Maker / Milagroso','Cielos Abiertos / Open Heavens','El Espíritu De Dios / Spirit of the Lord','Ven Espíritu Ven / Come Holy Spirit','Hay Una Esperanza','Always On Time / Siempre A Tiempo','Ya Se Oye El Shofar / Come Oh Lord','Espíritu Santo Ven / Holy Spirit Come'],tip:'The Holy Ghost bridge — "Renew me with new tongues, Revive me with new wine, Baptize me with fresh fire" — is the perfect New Year declaration.'},
+  pastor:{label:'Día del Pastor',description:"Honor your pastor and the calling God has placed on his life. Songs of faithfulness, God's anointing, humility, and service.",keywords:['fiel','faithful','digno','worthy','gloria','glory','aceite','oil','espiritu','spirit','honor'],songs:['Worthy / Digno','Worthy of It All / Digno Eres Tú','Digno Eres / Worthy Are You','Tu Fidelidad / Your Faithfulness','Holy Ghost','Trono De Alabanza / I Want To Fill Your Throne','Dios Ha Sido Bueno / God Has Been Good','Gracias / Thank You Jesus','Goodness Of God / Bondad De Dios','Santo Es El Que Vive / Holy Is The One Who Lives','Llévame Al Lugar Santísimo'],tip:"Open with high praise celebrating God's faithfulness through your pastor's ministry. The Worthy medley is a natural fit for this day."},
+  esperanza:{label:'Abrazando Esperanza',description:'A service of comfort, healing, and hope for those going through grief, hardship, or loss. Songs should be tender, reassuring, and full of God\'s presence.',keywords:['esperanza','hope','sana','heal','restaura','restore','paz','peace','amor','love','consuelo','comfort','cerca','near'],songs:['Hay Sanidad Aquí / Healing Is Here','Always On Time / Siempre A Tiempo','Same God / El Mismo Dios','Hay Una Esperanza','Devuélveme El Gozo','En Tí Confía Mi Corazón','Dios Manda Lluvia','Grande Es El Amor de Dios','Reckless Love / Amor Sin Condición','No Longer Slaves / Ya No Soy Esclavo','Tu Presencia Es El Cielo / Your Presence is Heaven'],tip:"Lead gently. Hay Sanidad Aquí and Devuélveme El Gozo speak directly to healing and restoration. Allow space for the Spirit to move."},
+  aceite:{label:'Aceite de Las Viudas',description:"A fund-raising service honoring widows of pastors. Songs of God's provision, comfort for the brokenhearted, and His faithfulness to care for the vulnerable.",keywords:['fiel','faithful','sana','heal','amor','love','consuelo','comfort','cuida','care','restaura','restore','provisión','provision'],songs:['Dios Ha Sido Bueno / God Has Been Good','Tu Fidelidad / Your Faithfulness','Always On Time / Siempre A Tiempo','Same God / El Mismo Dios','Reckless Love / Amor Sin Condición','Hay Sanidad Aquí / Healing Is Here','Grande Es El Amor de Dios','Gracias / Thank You Jesus','En Tí Confía Mi Corazón','Hay Una Esperanza','Goodness Of God / Bondad De Dios'],tip:"This service calls for warmth and tenderness. Allow generous space for testimony and prayer before the offering."},
+};
+
+function renderEventSuggestions(){
+  const key = document.getElementById('event-select').value;
+  const wrap = document.getElementById('event-suggestions-wrap');
+  const desc = document.getElementById('event-description');
+  const aiResult = document.getElementById('event-ai-result');
+  aiResult.innerHTML = '';
+  if(!key){ wrap.style.display='none'; desc.style.display='none'; return; }
+  const event = EVENTS[key];
+  desc.style.display = 'block';
+  desc.innerHTML = `<strong>${event.label}</strong><br><br>${event.description}<br><br><em>💡 ${event.tip}</em>`;
+  wrap.style.display = 'block';
+
+  const suggested = event.songs
+    .map(title => library.find(s => s.title.toLowerCase() === title.toLowerCase()))
+    .filter(Boolean);
+
+  const keywordMatches = library.filter(s => {
+    const text = (s.title + ' ' + (s.lyrics||'')).toLowerCase();
+    return event.keywords.some(k => text.includes(k.toLowerCase())) &&
+           !suggested.find(x => x.title === s.title);
+  }).slice(0, 4);
+
+  const all = [...suggested, ...keywordMatches];
+  const el = document.getElementById('event-song-list');
+  if(!all.length){ el.innerHTML='<div class="empty">No matching songs found — try adding more songs to your library.</div>'; return; }
+
+  el.innerHTML = all.map(s => {
+    const isCurated = !!suggested.find(x => x.title === s.title);
+    const idx = library.indexOf(s);
+    return `<div class="song-row">
+      <div style="flex:1;min-width:0">
+        <div class="song-title">${s.title}${!isCurated?' <span style="font-size:10px;color:var(--text3);font-family:system-ui,sans-serif">(keyword match)</span>':''}</div>
+        <div style="margin-top:3px">${getBadge(s.section)}</div>
+      </div>
+      <button style="font-size:12px;padding:4px 10px" onclick="addToSetlist(library[${idx}]); switchMain('setlist')">+ Add</button>
+    </div>`;
+  }).join('');
+}
+
+function getEventSetlist(){
+  const key = document.getElementById('event-select').value;
+  if(!key){ setStatus('Select an event first.','error'); return; }
+  const event = EVENTS[key];
+  const el = document.getElementById('event-ai-result');
+  const songTitles = library.map(s=>s.title).join(', ');
+  const prompt = 'Build a worship setlist for our ' + event.label + ' service at Sandy Apostolic Church. Structure it with: Praise/Avivamiento, Worship/Adoración, Offering/Ofrenda, Altar Call. Pick 6-9 songs and briefly explain why each fits. Format: summary on top grouped by section, then full setlist in order. Only use songs from this library:\n\n' + songTitles;
+  el.innerHTML = `
+    <div style="background:#e6f1fb;border-radius:8px;padding:12px 14px;font-family:system-ui,sans-serif;">
+      <div style="font-size:12px;color:#0c447c;margin-bottom:8px;font-weight:500">Copy this prompt and paste it into AI chat for a full setlist:</div>
+      <textarea readonly onclick="this.select()" style="width:100%;font-size:12px;font-family:system-ui,sans-serif;border:0.5px solid #b3d4f5;border-radius:6px;padding:8px;background:#fff;color:#1a1a1a;line-height:1.5;resize:none;min-height:100px">${prompt}</textarea>
+      <button onclick="
+        const ta=this.previousElementSibling;
+        ta.select();
+        navigator.clipboard.writeText(ta.value).then(()=>{this.textContent='✓ Copied!';setTimeout(()=>this.textContent='Copy',2000)}).catch(()=>{document.execCommand('copy');this.textContent='✓ Copied!';setTimeout(()=>this.textContent='Copy',2000)})
+      " style="margin-top:8px;font-size:12px;padding:5px 14px">Copy</button>
+    </div>`;
+}
+
+
+function switchMain(tab){
+  ['setlist','library','medley','events','add'].forEach((t,i)=>{
+    document.getElementById('pane-'+t).style.display = t===tab?'block':'none';
+    document.querySelectorAll('#main-tabs .tab')[i].classList.toggle('active', t===tab);
+  });
+  if(tab==='library'){renderLibrary(); renderStats();}
+  if(tab==='medley'){
+    loadCustomMedleys();
+    renderMedley();
+    const dl = document.getElementById('medley-datalist');
+    if(dl) dl.innerHTML = library.map(s=>`<option value="${s.title}">`).join('');
+  }
+}
+
+function getBadge(s){return `<span class="badge ${BADGE_CLASS[s]||'special'}">${s}</span>`;}
+
+// ── SETLIST ──────────────────────────────────────────────────────────────────
+function renderSetlist(){
+  const el=document.getElementById('setlist-rows');
+  if(!setlist.length){el.innerHTML='<div class="empty">No songs yet — pick from library or search Drive</div>';return;}
+  const sections=['Praise/Avivamiento','Worship/Adoración','Offering/Ofrenda','Altar Call','Special','Extra'];
+  el.innerHTML=setlist.map((s,i)=>`
+    <div class="song-row" draggable="true" data-i="${i}" ondragstart="ds(event,${i})" ondragover="dv(event)" ondrop="dp(event,${i})">
+      <span class="drag-handle">⠿</span>
+      <select onchange="changeSection(${i},this.value)" title="Change section" style="font-size:11px;padding:2px 5px;border-radius:6px;border:0.5px solid var(--border2);font-family:system-ui,sans-serif;background:${getSectionBg(s.section)};color:${getSectionColor(s.section)};cursor:pointer;max-width:130px">
+        ${sections.map(sec=>`<option value="${sec}" ${sec===s.section?'selected':''}>${sec}</option>`).join('')}
+      </select>
+      <span class="song-title">${s.title}</span>
+      <button class="icon-btn danger" onclick="removeFromSetlist(${i})" title="Remove">✕</button>
+    </div>`).join('');
+}
+
+function getSectionBg(s){
+  const m={'Praise/Avivamiento':'#eeedfe','Worship/Adoración':'#e1f5ee','Offering/Ofrenda':'#faeeda','Altar Call':'#faece7','Special':'#f0efe9','Extra':'#f0efe9'};
+  return m[s]||'#f0efe9';
+}
+function getSectionColor(s){
+  const m={'Praise/Avivamiento':'#3c3489','Worship/Adoración':'#085041','Offering/Ofrenda':'#633806','Altar Call':'#712b13','Special':'#6b6b6b','Extra':'#6b6b6b'};
+  return m[s]||'#6b6b6b';
+}
+function changeSection(i, newSection){
+  setlist[i].section = newSection;
+  renderSetlist();
+}
+let dragSrc=null;
+function ds(e,i){dragSrc=i;}
+function dv(e){e.preventDefault();}
+function dp(e,i){e.preventDefault();if(dragSrc===null||dragSrc===i)return;const m=setlist.splice(dragSrc,1)[0];setlist.splice(i,0,m);dragSrc=null;renderSetlist();}
+function removeFromSetlist(i){setlist.splice(i,1);renderSetlist();}
+function clearSetlist(){setlist=[];renderSetlist();}
+function addToSetlist(song, section){
+  setlist.push({...song, section: section||song.section});
+  renderSetlist();
+  setStatus(`"${song.title}" added to setlist.`, 'success');
+}
+
+// ── LIBRARY ──────────────────────────────────────────────────────────────────
+function renderStats(){
+  const secs={};library.forEach(s=>{secs[s.section]=(secs[s.section]||0)+1;});
+  document.getElementById('lib-stats').innerHTML=`
+    <div class="stat"><div class="stat-n">${library.length}</div><div class="stat-l">Songs saved</div></div>
+    <div class="stat"><div class="stat-n">${library.filter(s=>s.language&&s.language.includes('Bilingual')).length}</div><div class="stat-l">Bilingual</div></div>
+    <div class="stat"><div class="stat-n">${Object.keys(secs).length}</div><div class="stat-l">Sections</div></div>
+    <div class="stat"><div class="stat-n">${secs['Altar Call']||0}</div><div class="stat-l">Altar Call songs</div></div>`;
+}
+
+function renderLibrary(){
+  const q=(document.getElementById('lib-search').value||'').toLowerCase();
+  const sec=document.getElementById('lib-filter').value;
+  const filtered=library.filter(s=>
+    (!q || s.title.toLowerCase().includes(q) || (s.lyrics||'').toLowerCase().includes(q) || (s.artist||'').toLowerCase().includes(q)) &&
+    (!sec || s.section===sec)
+  );
+  const el=document.getElementById('lib-rows');
+  if(!filtered.length){el.innerHTML=`<div class="empty">${library.length===0?'Library empty.':'No matches.'}</div>`;return;}
+  el.innerHTML=filtered.map(s=>{
+    const i=library.indexOf(s);
+    return `<div class="song-row">
+      <div style="flex:1;min-width:0">
+        <div class="song-title">${s.title}</div>
+        <div style="margin-top:3px;display:flex;gap:4px;flex-wrap:wrap">${getBadge(s.section)}${s.artist?`<span class="badge special">${s.artist}</span>`:''}</div>
+      </div>
+      <button class="icon-btn" onclick="viewSong(${i})" title="View lyrics"></button>
+      <button class="icon-btn" onclick="addToSetlist(library[${i}]); switchMain('setlist')" title="Add to setlist">✓</button>
+      <button class="icon-btn danger" onclick="deleteSong(${i})" title="Delete">Del</button>
+    </div>`;
+  }).join('');
+}
+
+function deleteSong(i){
+  const t=library[i].title;
+  if(!confirm(`Remove "${t}" from your library?\n\nThis cannot be undone.`)) return;
+  library.splice(i,1);
+  lsSet('worship-library-v4',library);
+  renderLibrary(); renderStats();
+  setStatus(`"${t}" removed.`, 'info');
+}
+
+// ── VIEW MODAL ───────────────────────────────────────────────────────────────
+function viewSong(i){
+  viewIdx=i; const s=library[i];
+  document.getElementById('view-title-el').textContent=s.title;
+  document.getElementById('view-meta').innerHTML=getBadge(s.section)+(s.artist?` <span class="badge special">${s.artist}</span>`:'')+( s.language?` <span class="badge special">${s.language}</span>`:'');
+  document.getElementById('view-lyrics-el').textContent=s.lyrics||'(no lyrics)';
+  document.getElementById('view-overlay').classList.add('open');
+}
+function closeView(){document.getElementById('view-overlay').classList.remove('open');}
+function addToSetlistFromView(){addToSetlist(library[viewIdx]);closeView();switchMain('setlist');}
+
+// ── EDIT MODAL ───────────────────────────────────────────────────────────────
+function openEdit(i){
+  closeView(); editIdx=i; const s=library[i];
+  document.getElementById('edit-title').value=s.title;
+  document.getElementById('edit-section').value=s.section;
+  document.getElementById('edit-artist').value=s.artist||'';
+  document.getElementById('edit-lang').value=s.language||'Bilingual (EN/ES)';
+  document.getElementById('edit-lyrics').value=s.lyrics||'';
+  document.getElementById('edit-overlay').classList.add('open');
+}
+function closeEdit(){document.getElementById('edit-overlay').classList.remove('open');}
+function saveEdit(){
+  const s=library[editIdx];
+  s.title=document.getElementById('edit-title').value.trim()||s.title;
+  s.section=document.getElementById('edit-section').value;
+  s.artist=document.getElementById('edit-artist').value.trim();
+  s.language=document.getElementById('edit-lang').value;
+  s.lyrics=document.getElementById('edit-lyrics').value;
+  lsSet('worship-library-v4',library);
+  renderLibrary(); renderStats(); closeEdit();
+  setStatus(`"${s.title}" updated.`, 'success');
+}
+
+// ── DRIVE SEARCH MODAL (from Setlist tab) ────────────────────────────────────
+function openDriveModal(){
+  document.getElementById('modal-drive-q').value='';
+  document.getElementById('modal-drive-results').innerHTML='Enter a song name and search.';
+  document.getElementById('drive-overlay').classList.add('open');
+  setTimeout(()=>document.getElementById('modal-drive-q').focus(),100);
+}
+function closeDriveModal(){document.getElementById('drive-overlay').classList.remove('open');}
+async function modalDriveSearch(){
+  const q=document.getElementById('modal-drive-q').value.trim();
+  if(!q)return;
+  const el=document.getElementById('modal-drive-results');
+  el.innerHTML='<span class="spinner"></span> Searching your Drive…';
+  await driveSearch(q, el, 'setlist');
+}
+
+// ── DRIVE SEARCH (Add tab) ───────────────────────────────────────────────────
+async function addTabSearch(){
+  const q=document.getElementById('add-drive-q').value.trim();
+  if(!q)return;
+  const el=document.getElementById('add-drive-results');
+  el.innerHTML='<span class="spinner"></span> Searching your Drive…';
+  await driveSearch(q, el, 'library');
+}
+
+async function driveSearch(q, el, mode){
+  try{
+    const res=await fetch("https://api.anthropic.com/v1/messages",{
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({
+        model:"claude-sonnet-4-20250514", max_tokens:1000,
+        system:"Search Google Drive for worship song or setlist files matching the query. Include docs shared with the user. Return ONLY JSON: {\"found\":true,\"files\":[{\"id\":\"...\",\"name\":\"...\",\"owner\":\"...\",\"modified\":\"...\"}]}. No markdown, no preamble.",
+        messages:[{role:"user",content:`Search Drive for: "${q}"`}],
+        mcp_servers:[{type:"url",url:"https://drivemcp.googleapis.com/mcp/v1",name:"gdrive"}]
+      })
+    });
+    const data=await res.json();
+    const text=data.content.filter(b=>b.type==='text').map(b=>b.text).join('');
+    let result; try{result=JSON.parse(text.replace(/```json|```/g,'').trim());}catch{result={found:false};}
+    if(result.found && result.files && result.files.length){
+      el.innerHTML='<div style="margin-bottom:6px;font-size:12px;color:#9a9a9a">Found in your Drive:</div>'+
+        result.files.map(f=>`<div class="drive-row">
+          📄
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${f.name}</div>
+            <div style="font-size:11px;color:#9a9a9a">${f.owner||''} ${f.modified?'· '+f.modified.split('T')[0]:''}</div>
+          </div>
+          <button onclick="importFile('${f.id}','${f.name.replace(/'/g,"\\'")}','${mode}')">Import</button>
+        </div>`).join('');
+    } else {
+      el.innerHTML='<span style="color:#6b6b6b">No matching files found. Try a different search term.</span>';
+    }
+  }catch{el.innerHTML='<span style="color:#791f1f">Search failed — check your Drive connection.</span>';}
+}
+
+async function importFile(fileId, fileName, mode){
+  const section = mode==='setlist' ? document.getElementById('modal-section').value : 'Worship/Adoración';
+  const targetEl = mode==='setlist' ? document.getElementById('modal-drive-results') : document.getElementById('add-drive-results');
+  targetEl.innerHTML='<span class="spinner"></span> Loading lyrics…';
+  try{
+    const res=await fetch("https://api.anthropic.com/v1/messages",{
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({
+        model:"claude-sonnet-4-20250514", max_tokens:2000,
+        system:"Read the Google Drive file and return ONLY its plain text content. No preamble.",
+        messages:[{role:"user",content:`Read file ID: ${fileId}`}],
+        mcp_servers:[{type:"url",url:"https://drivemcp.googleapis.com/mcp/v1",name:"gdrive"}]
+      })
+    });
+    const data=await res.json();
+    const lyrics=data.content.filter(b=>b.type==='text').map(b=>b.text).join('\n');
+    const song={title:fileName, section, artist:'', language:'Bilingual (EN/ES)', addedDate:new Date().toISOString().split('T')[0], lyrics};
+    library.push(song); lsSet('worship-library-v4',library); renderLibrary(); renderStats();
+    if(mode==='setlist'){addToSetlist(song,section);closeDriveModal();switchMain('setlist');}
+    else{targetEl.innerHTML=`<span style="color:#27500a">✓ "${fileName}" saved to library.</span>`;}
+    setStatus(`"${fileName}" imported.`, 'success');
+  }catch{targetEl.innerHTML='<span style="color:#791f1f">Could not load file.</span>';}
+}
+
+// ── ADD MANUALLY ─────────────────────────────────────────────────────────────
+async function formatLyrics(){
+  const raw=document.getElementById('new-lyrics').value.trim();
+  const title=document.getElementById('new-title').value.trim()||'Song';
+  if(!raw){setStatus('Paste some lyrics first.','error');return;}
+  setStatus('Formatting with AI…','info');
+  try{
+    const res=await fetch("https://api.anthropic.com/v1/messages",{
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({model:"claude-sonnet-4-20250514", max_tokens:1000,
+        system:"Format raw worship song lyrics. Label sections consistently (VERSE, CHORUS, BRIDGE, CORO, PUENTE, TAG). Preserve bilingual content. Clean spacing. Return ONLY the formatted lyrics.",
+        messages:[{role:"user",content:`Format lyrics for "${title}":\n\n${raw}`}]})
+    });
+    const data=await res.json();
+    document.getElementById('new-lyrics').value=data.content.filter(b=>b.type==='text').map(b=>b.text).join('');
+    setStatus('Formatted — review and save.','success');
+  }catch{setStatus('Formatting failed.','error');}
+}
+
+function saveNewSong(){
+  const title=document.getElementById('new-title').value.trim();
+  const lyrics=document.getElementById('new-lyrics').value.trim();
+  if(!title){setStatus('Enter a song title.','error');return;}
+  if(!lyrics){setStatus('Add some lyrics.','error');return;}
+  const song={title, section:document.getElementById('new-section').value, artist:document.getElementById('new-artist').value.trim(), language:document.getElementById('new-lang').value, addedDate:new Date().toISOString().split('T')[0], lyrics};
+  library.push(song); lsSet('worship-library-v4',library);
+  document.getElementById('new-title').value=''; document.getElementById('new-lyrics').value=''; document.getElementById('new-artist').value='';
+  renderStats(); setStatus(`"${title}" saved to library.`,'success');
+}
+
+// ── PREVIEW ──────────────────────────────────────────────────────────────────
+function previewSetlist(){
+  if(!setlist.length){setStatus('Add songs first.','error');return;}
+  const date=document.getElementById('svc-date').value;
+  const title=document.getElementById('svc-title').value||'Worship Service';
+  const dateStr=date?new Date(date+'T12:00:00').toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'}):'';
+  let html=`<p style="font-weight:500;font-size:15px;margin-bottom:2px;font-family:system-ui,sans-serif">${title}</p>`;
+  if(dateStr) html+=`<p style="font-size:12px;color:var(--text2);margin-bottom:14px;font-family:system-ui,sans-serif">${dateStr}</p>`;
+  setlist.forEach(s=>{html+=`<div style="margin-bottom:12px">${getBadge(s.section)} <strong style="font-size:13px;font-family:system-ui,sans-serif">${s.title}</strong><div class="lyrics-prev">${(s.lyrics||'').substring(0,200)}${(s.lyrics||'').length>200?'…':''}</div></div>`;});
+  document.getElementById('preview-content').innerHTML=html;
+  document.getElementById('preview-overlay').classList.add('open');
+}
+
+// ── CREATE GOOGLE DOC ────────────────────────────────────────────────────────
+function copySetlist(){
+  if(!setlist.length){setStatus('Add songs to your setlist first.','error');return;}
+  document.getElementById('preview-overlay').classList.remove('open');
+  const date=document.getElementById('svc-date').value;
+  const svcTitle=document.getElementById('svc-title').value||'Worship Service';
+  const dateStr=date?new Date(date+'T12:00:00').toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'}):'';
+
+  // ── SUMMARY BLOCK (top of doc, grouped by section) ──
+  const sectionOrder=['Praise/Avivamiento','Worship/Adoración','Offering/Ofrenda','Altar Call','Special','Extra'];
+  const grouped={};
+  setlist.forEach(s=>{
+    const sec=s.section||'Special';
+    if(!grouped[sec]) grouped[sec]=[];
+    grouped[sec].push(s.title);
+  });
+
+  let text=svcTitle+'\n';
+  if(dateStr) text+=dateStr+'\n';
+  text+='\n';
+
+  // Section summary
+  sectionOrder.forEach(sec=>{
+    if(!grouped[sec]) return;
+    text+=sec+':\n';
+    grouped[sec].forEach(title=>{ text+='  • '+title+'\n'; });
+    text+='\n';
+  });
+  // Any custom sections not in the standard order
+  Object.keys(grouped).forEach(sec=>{
+    if(!sectionOrder.includes(sec)){
+      text+=sec+':\n';
+      grouped[sec].forEach(title=>{ text+='  • '+title+'\n'; });
+      text+='\n';
+    }
+  });
+
+  text+='\f'; // page break after summary
+
+  // ── FULL LYRICS BLOCK (grouped by section, page break between each) ──
+  const sectionOrderFull=['Praise/Avivamiento','Worship/Adoración','Offering/Ofrenda','Altar Call','Special','Extra'];
+  const allSections=[...sectionOrderFull,...Object.keys(grouped).filter(s=>!sectionOrderFull.includes(s))];
+
+  allSections.forEach(sec=>{
+    const songs=setlist.filter(s=>s.section===sec);
+    if(!songs.length) return;
+    text+=sec.toUpperCase()+'\n'+'='.repeat(40)+'\n\n';
+    songs.forEach(s=>{
+      text+=s.title+'\n\n';
+      text+=(s.lyrics||'')+'\n\n';
+      text+='-'.repeat(40)+'\n\n';
+    });
+    text+='\f'; // page break between sections
+  });
+
+  navigator.clipboard.writeText(text).then(()=>{
+    setStatus('\u2713 Copied! Open a Google Doc and paste (Cmd+V or Ctrl+V).','success');
+  }).catch(()=>{
+    const ta=document.createElement('textarea');
+    ta.value=text;
+    ta.style.position='fixed';
+    ta.style.opacity='0';
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    try{
+      document.execCommand('copy');
+      setStatus('\u2713 Copied! Open a Google Doc and paste (Cmd+V or Ctrl+V).','success');
+    } catch {
+      setStatus('Could not copy automatically. Use the Preview button to see your setlist.','error');
+    }
+    document.body.removeChild(ta);
+  });
+}
+
+// ── BACKUP ───────────────────────────────────────────────────────────────────
+async function backupToDrive(){
+  if(!library.length){setStatus('Library is empty.','error');return;}
+  setStatus('Backing up to Drive…','info');
+  let content=`WORSHIP SONG LIBRARY — SANDY APOSTOLIC CHURCH\nDate: ${new Date().toLocaleDateString()}\nTotal: ${library.length} songs\n\n${'='.repeat(50)}\n\n`;
+  library.forEach(s=>{content+=`SONG: ${s.title}\nSECTION: ${s.section}\nARTIST: ${s.artist||'—'}\nLANGUAGE: ${s.language||'—'}\n\n${s.lyrics}\n\n${'─'.repeat(40)}\n\n`;});
+  try{
+    const res=await fetch("https://api.anthropic.com/v1/messages",{
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({model:"claude-sonnet-4-20250514", max_tokens:1000,
+        system:"Create a Google Doc. Return ONLY JSON: {\"success\":true,\"url\":\"...\"}",
+        messages:[{role:"user",content:`Create Google Doc titled "Worship Song Library — Backup ${new Date().toLocaleDateString()}" with:\n\n${content}`}],
+        mcp_servers:[{type:"url",url:"https://drivemcp.googleapis.com/mcp/v1",name:"gdrive"}]})
+    });
+    const data=await res.json();
+    const text=data.content.filter(b=>b.type==='text').map(b=>b.text).join('');
+    let result; try{result=JSON.parse(text.replace(/```json|```/g,'').trim());}catch{result={};}
+    if(result.url){setStatus(`Backup saved (${library.length} songs).`,'success'); window.open(result.url,'_blank');}
+    else setStatus('Backup saved — check your Drive.','info');
+  }catch{setStatus('Backup failed.','error');}
+}
+
+function exportJSON(){
+  const b=new Blob([JSON.stringify(library,null,2)],{type:'application/json'});
+  const u=URL.createObjectURL(b); const a=document.createElement('a');
+  a.href=u; a.download='worship-library.json'; a.click(); URL.revokeObjectURL(u);
+}
+
+init();
+</script>
+</body>
+</html>
