@@ -138,10 +138,10 @@
   <div id="pane-medley" style="display:none">
     <div class="card">
       <div style="font-size:13px;color:var(--text2);font-family:system-ui,sans-serif;margin-bottom:1rem;line-height:1.6">
-        These medley are based on how songs have actually been used together in your past setlists — medleys, back-to-back flows, and song switches documented in your Drive docs. You can also get AI suggestions for any song.
+        These medleys are based on how songs have actually been used together in your past setlists — medleys, back-to-back flows, and song switches documented in your Drive docs. You can also get suggestions for any song.
       </div>
       <!-- Search for suggestions -->
-      <label>Get AI suggestions for a song</label>
+      <label>Get suggestions for a song</label>
       <div class="search-row" style="margin-bottom:0">
         <input type="text" id="medley-search" placeholder="Type a song name…" style="flex:1;color:#1a1a1a;background:#fff" list="medley-datalist" onkeydown="if(event.key==='Enter')getAISuggestions()" />
         <datalist id="medley-datalist"></datalist>
@@ -188,7 +188,7 @@
   <div id="pane-events" style="display:none">
     <div class="card">
       <div style="font-size:13px;color:var(--text2);font-family:system-ui,sans-serif;margin-bottom:1rem;line-height:1.6">
-        Select an event and we'll suggest songs from your library that fit the occasion — plus you can get AI-powered suggestions for a custom setlist.
+        Select an event and we'll suggest songs from your library that fit the occasion — plus you can get suggestions for a custom setlist.
       </div>
       <label>Select event</label>
       <select id="event-select" onchange="renderEventSuggestions()" style="margin-bottom:1rem">
@@ -219,7 +219,7 @@
         <div id="event-song-list"></div>
       </div>
       <div class="card">
-        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;font-family:system-ui,sans-serif;margin-bottom:8px">AI — Build a full setlist for this event</div>
+        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;font-family:system-ui,sans-serif;margin-bottom:8px">Build a full setlist for this event</div>
         <p style="font-size:13px;color:var(--text2);font-family:system-ui,sans-serif;margin-bottom:10px">Get a suggested order with section breakdown tailored to this occasion.</p>
         <button onclick="getEventSetlist()">Build event setlist</button>
         <div id="event-ai-result" style="margin-top:12px;font-size:13px;font-family:system-ui,sans-serif;line-height:1.7"></div>
@@ -261,8 +261,18 @@
       <div class="field"><label>Lyrics</label><textarea id="new-lyrics" rows="7" placeholder="Paste lyrics here…"></textarea></div>
       <div class="btn-row">
         <button onclick="formatLyrics()">✨ Auto Format</button>
-        <button class="primary" onclick="saveNewSong()">Save Save to library</button>
+        <button class="primary" onclick="saveNewSong()">Save to library</button>
       </div>
+    </div>
+
+    <div class="card" style="margin-top:12px">
+      <label>Custom songs</label>
+      <p style="font-size:12px;color:var(--text2);font-family:system-ui,sans-serif;margin:4px 0 10px">These are songs you've added manually (stored in Supabase). Export them to get them added to the master library permanently.</p>
+      <div class="btn-row">
+        <button onclick="exportCustomSongs()">⬇ Export custom songs</button>
+        <button onclick="mergeCustomIntoMaster()" style="background:var(--surface2)">⚡ Merge into master (this session)</button>
+      </div>
+      <div id="custom-export-status" style="font-size:12px;color:var(--text2);font-family:system-ui,sans-serif;margin-top:8px"></div>
     </div>
   </div>
 </div>
@@ -835,9 +845,10 @@ async function init(){
         renderStats();
       }
     }
-    setStatus('','info');
   } catch(e) {
     // Custom songs unavailable — master library still loaded, no need to alarm user
+  } finally {
+    setStatus('','info');
   }
   await loadCustomMedleys();
 }
@@ -860,8 +871,10 @@ async function resetLibrary(){
 
 function setStatus(msg,type){
   const el=document.getElementById('status');
+  if(!msg){ el.style.display='none'; return; }
+  el.style.display='';
   el.textContent=msg; el.className='status '+type;
-  if(type==='success') setTimeout(()=>el.style.display='none', 4000);
+  if(type==='success') setTimeout(()=>{ el.style.display='none'; }, 4000);
 }
 
 // ── HISTORICAL MEDLEYS from all your Drive docs ─────────────────────────────
@@ -1218,7 +1231,7 @@ function getAISuggestions(){
   const promptText = 'Suggest 2-3 songs from our library that pair well with "' + q + '" as a medley or natural flow for our bilingual (EN/ES) worship service. Only explain where to transition and how — no extra commentary. Library: ' + songList;
   el.innerHTML =
     '<div style="background:#e6f1fb;border-radius:8px;padding:12px 14px;font-family:system-ui,sans-serif;">' +
-      '<div style="font-size:12px;color:#0c447c;margin-bottom:8px;font-weight:500">Copy this prompt and paste it into AI chat:</div>' +
+      '<div style="font-size:12px;color:#0c447c;margin-bottom:8px;font-weight:500">Copy this prompt and paste it into a chat:</div>' +
       '<textarea id="medley-prompt-ta" readonly style="width:100%;font-size:12px;font-family:system-ui,sans-serif;border:0.5px solid #b3d4f5;border-radius:6px;padding:8px;background:#fff;color:#1a1a1a;line-height:1.5;resize:none;height:80px">' + promptText.replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</textarea>' +
       '<button onclick="copyMedleyPrompt()" style="margin-top:8px;font-size:12px;padding:5px 14px" id="medley-copy-btn">Copy</button>' +
     '</div>';
@@ -1301,7 +1314,7 @@ function getEventSetlist(){
   const prompt = 'Build a worship setlist for our ' + event.label + ' service at Sandy Apostolic Church. Structure it with: Praise/Avivamiento, Worship/Adoración, Offering/Ofrenda, Altar Call. Pick 6-9 songs and briefly explain why each fits. Format: summary on top grouped by section, then full setlist in order. Only use songs from this library:\n\n' + songTitles;
   el.innerHTML = `
     <div style="background:#e6f1fb;border-radius:8px;padding:12px 14px;font-family:system-ui,sans-serif;">
-      <div style="font-size:12px;color:#0c447c;margin-bottom:8px;font-weight:500">Copy this prompt and paste it into AI chat for a full setlist:</div>
+      <div style="font-size:12px;color:#0c447c;margin-bottom:8px;font-weight:500">Copy this prompt and paste it into a chat for a full setlist:</div>
       <textarea readonly onclick="this.select()" style="width:100%;font-size:12px;font-family:system-ui,sans-serif;border:0.5px solid #b3d4f5;border-radius:6px;padding:8px;background:#fff;color:#1a1a1a;line-height:1.5;resize:none;min-height:100px">${prompt}</textarea>
       <button onclick="
         const ta=this.previousElementSibling;
@@ -1619,7 +1632,7 @@ async function formatLyrics(){
   const raw=document.getElementById('new-lyrics').value.trim();
   const title=document.getElementById('new-title').value.trim()||'Song';
   if(!raw){setStatus('Paste some lyrics first.','error');return;}
-  setStatus('Formatting with AI…','info');
+  setStatus('Formatting…','info');
   try{
     const res=await fetch("https://api.anthropic.com/v1/messages",{
       method:"POST", headers:{"Content-Type":"application/json"},
@@ -1654,6 +1667,46 @@ async function saveNewSong(){
     document.getElementById('new-title').value=''; document.getElementById('new-lyrics').value=''; document.getElementById('new-artist').value='';
     renderLibrary(); renderStats(); setStatus(`"${title}" saved to library.`,'success');
   } catch(e){ setStatus('Could not save — check connection.','error'); }
+}
+
+// ── EXPORT CUSTOM SONGS ──────────────────────────────────────────────────────
+function exportCustomSongs(){
+  const customs = library.filter(s => s.custom);
+  const statusEl = document.getElementById('custom-export-status');
+  if(!customs.length){
+    statusEl.textContent = 'No custom songs found — nothing to export.';
+    return;
+  }
+  let out = `CUSTOM SONGS EXPORT — ${new Date().toLocaleDateString()}\n`;
+  out += `${customs.length} song(s) — send this file to get the songs added to the master library.\n`;
+  out += '='.repeat(60) + '\n\n';
+  customs.forEach((s, i) => {
+    out += `[${i+1}] ${s.title}\n`;
+    out += `Section: ${s.section}\n`;
+    if(s.artist) out += `Artist: ${s.artist}\n`;
+    out += `Language: ${s.language}\n`;
+    out += `Lyrics:\n${s.lyrics}\n`;
+    out += '-'.repeat(60) + '\n\n';
+  });
+  const blob = new Blob([out], {type:'text/plain'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `custom-songs-${new Date().toISOString().split('T')[0]}.txt`;
+  a.click(); URL.revokeObjectURL(url);
+  statusEl.textContent = `✓ Exported ${customs.length} song(s). Send the file to get them added!`;
+}
+
+function mergeCustomIntoMaster(){
+  const customs = library.filter(s => s.custom);
+  const statusEl = document.getElementById('custom-export-status');
+  if(!customs.length){
+    statusEl.textContent = 'No custom songs to merge.';
+    return;
+  }
+  // Mark them as no longer "custom" so they behave like master songs this session
+  library = library.map(s => s.custom ? {...s, custom:false, _merged:true} : s);
+  renderLibrary(); renderStats();
+  statusEl.innerHTML = `✓ ${customs.length} custom song(s) merged into master for this session.<br><span style="color:#b35c00">This only lasts until you reload — export and send the file to make it permanent.</span>`;
 }
 
 // ── PREVIEW ──────────────────────────────────────────────────────────────────
