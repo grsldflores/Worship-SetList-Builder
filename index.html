@@ -45,9 +45,10 @@
   .song-row { display: flex; align-items: center; gap: 8px; padding: 10px 0; border-bottom: 0.5px solid var(--border); }
   .song-row:last-child { border-bottom: none; }
   .song-title { flex: 1; font-size: 14px; font-weight: 500; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: system-ui, sans-serif; color: #1a1a1a; }
-  .drag-handle { color: #9a9a9a; cursor: grab; font-size: 17px; }
-  .icon-btn { background: none; border: none; color: #9a9a9a; cursor: pointer; font-size: 17px; padding: 4px 5px; border-radius: 6px; }
-  .icon-btn:hover { background: #f7f6f3; color: #1a1a1a; }
+  .drag-handle { color: #c5c3ce; cursor: grab; font-size: 18px; padding: 2px 4px; touch-action: none; user-select: none; }
+  .icon-btn { background: none; border: none; color: #b0aeb8; cursor: pointer; font-size: 15px; padding: 5px 6px; border-radius: 7px; line-height: 1; display: inline-flex; align-items: center; justify-content: center; transition: background .12s, color .12s; }
+  .icon-btn svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .icon-btn:hover { background: #ededf5; color: #4a3fa0; }
   .icon-btn.danger:hover { background: var(--danger-bg); color: var(--danger-text); }
   .status { font-size: 13px; padding: 8px 12px; border-radius: var(--radius); margin-bottom: .75rem; display: none; font-family: system-ui, sans-serif; }
   .status.info { background: var(--info-bg); color: var(--info-text); display: block; }
@@ -295,7 +296,7 @@
     <div class="lyrics-prev" id="view-lyrics-el" style="max-height:300px"></div>
     <div class="btn-row">
       <button class="primary" onclick="addToSetlistFromView()">+ Add to setlist</button>
-      <button onclick="openEdit(viewIdx)">✏️ Edit lyrics</button>
+      <button onclick="editSongLyrics(viewIdx)">✏️ Edit lyrics</button>
       <button onclick="closeView()">Close</button>
     </div>
   </div>
@@ -1055,8 +1056,9 @@ function deleteCustomMedley(ci){
 }
 
 function addCustomMedleyToSetlist(ci){
+  loadCustomMedleys();
   var p = customMedleys[ci];
-  if(!p){ setStatus('Medley not found.','error'); return; }
+  if(!p){ setStatus('Medley not found. (index '+ci+')','error'); return; }
   if(!library || library.length === 0) library = MASTER_LIBRARY.slice();
   var added = 0;
   for(var k=0; k<p.songs.length; k++){
@@ -1074,9 +1076,9 @@ function addCustomMedleyToSetlist(ci){
     setlist.push(match ? JSON.parse(JSON.stringify(match)) : {title:title,section:'Praise/Avivamiento',artist:'',language:'',lyrics:''});
     added++;
   }
-  renderSetlist();
   switchMain('setlist');
-  setStatus('Added '+added+' songs to setlist.','success');
+  renderSetlist();
+  setStatus('Added '+added+' songs to setlist! ✓','success');
 }
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -1255,6 +1257,7 @@ function renderSetlist(){
       <span class="song-title">${s.title}</span>
       <button class="icon-btn danger" onclick="removeFromSetlist(${i})" title="Remove">✕</button>
     </div>`).join('');
+  setTimeout(initTouchDrag, 30);
 }
 
 function getSectionBg(s){
@@ -1273,6 +1276,53 @@ let dragSrc=null;
 function ds(e,i){dragSrc=i;}
 function dv(e){e.preventDefault();}
 function dp(e,i){e.preventDefault();if(dragSrc===null||dragSrc===i)return;const m=setlist.splice(dragSrc,1)[0];setlist.splice(i,0,m);dragSrc=null;renderSetlist();}
+
+// ── TOUCH DRAG (mobile reorder) ───────────────────────────────────────────────
+var _touchDragIdx=null, _touchClone=null, _touchOverIdx=null;
+function initTouchDrag(){
+  var rows=document.querySelectorAll('#setlist-rows .song-row');
+  rows.forEach(function(row,i){
+    var handle=row.querySelector('.drag-handle');
+    if(!handle)return;
+    handle.addEventListener('touchstart',function(e){
+      e.preventDefault();
+      _touchDragIdx=i;
+      var t=e.touches[0];
+      _touchClone=row.cloneNode(true);
+      _touchClone.style.cssText='position:fixed;left:'+row.getBoundingClientRect().left+'px;top:'+row.getBoundingClientRect().top+'px;width:'+row.offsetWidth+'px;opacity:.85;background:#fff;box-shadow:0 4px 20px rgba(0,0,0,.18);border-radius:8px;z-index:999;pointer-events:none;padding:10px 12px;';
+      document.body.appendChild(_touchClone);
+      row.style.opacity='.3';
+    },{passive:false});
+    handle.addEventListener('touchmove',function(e){
+      if(_touchDragIdx===null)return;
+      e.preventDefault();
+      var t=e.touches[0];
+      if(_touchClone){_touchClone.style.top=(t.clientY-24)+'px';}
+      // find which row we're over
+      rows.forEach(function(r2,j){
+        var rect=r2.getBoundingClientRect();
+        if(t.clientY>=rect.top && t.clientY<=rect.bottom){
+          _touchOverIdx=j;
+          rows.forEach(function(r3){r3.style.borderTop='';});
+          if(j!==_touchDragIdx) r2.style.borderTop='2px solid #4a3fa0';
+        }
+      });
+    },{passive:false});
+    handle.addEventListener('touchend',function(e){
+      if(_touchDragIdx===null)return;
+      if(_touchClone){_touchClone.remove();_touchClone=null;}
+      rows.forEach(function(r){r.style.opacity='';r.style.borderTop='';});
+      if(_touchOverIdx!==null && _touchOverIdx!==_touchDragIdx){
+        var moved=setlist.splice(_touchDragIdx,1)[0];
+        setlist.splice(_touchOverIdx,0,moved);
+        renderSetlist();
+        setTimeout(initTouchDrag,50);
+      }
+      _touchDragIdx=null; _touchOverIdx=null;
+    });
+  });
+}
+
 function removeFromSetlist(i){setlist.splice(i,1);renderSetlist();}
 function clearSetlist(){setlist=[];renderSetlist();}
 function addToSetlist(song, section){
@@ -1307,10 +1357,9 @@ function renderLibrary(){
         <div class="song-title">${s.title}</div>
         <div style="margin-top:3px;display:flex;gap:4px;flex-wrap:wrap">${getBadge(s.section)}${s.artist?`<span class="badge special">${s.artist}</span>`:''}</div>
       </div>
-      <button class="icon-btn" onclick="viewSong(${i})" title="View lyrics">📋</button>
-      <button class="icon-btn" onclick="editSongLyrics(${i})" title="Edit lyrics">✏️</button>
-      <button class="icon-btn" onclick="addToSetlist(library[${i}]); switchMain('setlist')" title="Add to setlist">＋</button>
-      <button class="icon-btn danger" id="del-btn-${i}" onclick="confirmDeleteSong(${i}, this)" title="Delete">🗑️</button>
+      <button class="icon-btn" onclick="viewSong(${i})" title="View lyrics"><svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
+      <button class="icon-btn" onclick="addToSetlist(library[${i}]); switchMain('setlist')" title="Add to setlist"><svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+      <button class="icon-btn danger" id="del-btn-${i}" onclick="confirmDeleteSong(${i}, this)" title="Delete"><svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg></button>
     </div>`;
   }).join('');
 }
