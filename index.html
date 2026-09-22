@@ -757,48 +757,60 @@ Y siento tu paz irresistible`},
   {title:"Mis Pecados Son Borrados Ya",section:"Special",artist:"",language:"Spanish only",lyrics:`Mis pecados son borrados ya\nMis pecados son borrados ya\nMis pecados son borrados ya\nEn el nombre de Jesus\n\nSoy bautizado en el nombre de Jesus\nComo manda El Salvador\nSoy bautizado en el nombre de Jesus\nComo manda El Salvador`}
 ,
   {title:"Dame De Beber",section:"Worship/Adoración",artist:"",language:"Spanish only",lyrics:`VERSO\n// Quiero estar en tu presencia\nY poderte contemplar\nNecesito estar contigo\nNecesito adorar //\n\nCORO\n// Dame de beber\nDe tu manantial\nDame de beber\nNecesito mas //`},
-  {title:"Hay Momentos",section:"Worship/Adoración",artist:"",language:"Spanish only",lyrics:`VERSO\nHay momentos\nQue las palabras no alcanzan\nPara decirte lo que siento\nBendito Salvador\n\nCORO\nYo te agradezco\nPor todo lo que has hecho\nPor todo lo que haces\nY todo lo que haras`}
+  {title:"Hay Momentos",section:"Worship/Adoración",artist:"",language:"Spanish only",lyrics:`VERSO\nHay momentos\nQue las palabras no alcanzan\nPara decirte lo que siento\nBendito Salvador\n\nCORO\nYo te agradezco\nPor todo lo que has hecho\nPor todo lo que haces\nY todo lo que haras`},
+  {title:"Un Momento",section:"Worship/Adoración",artist:"Priscilla Bueno",language:"Spanish only",lyrics:`VERSO\nAmo estar\nEn este lugar\nEn Tu comunión\nPoder Habitar\nCuán bello es\nTu rostro mirar\nTu nombre en mis labios\nPoder pronunciar\n\nCORO\n//Mi esperanza está\nEn que regresarás\nY poder disfrutar\nDe Ti para siempre//\n\nVERSO\nAmo estar\nEn este lugar\nEn Tu comunión\nPoder Habitar\nCuán bello es\nTu rostro mirar\nTu nombre en mis labios\nPoder pronunciar\n\nCORO\n//Mi esperanza está\nEn que regresarás\nY poder disfrutar\nDe Ti para siempre//\n\nPUENTE\n///Un momento\nEn Tus atrios\nNo quisiera nada más\nEn Tu mesa\nA Tu lado\nNo quisiera nada más///\n\nCORO\n//Mi esperanza está\nEn que regresarás\nY poder disfrutar\nDe Ti para siempre//\n\nPUENTE\n//Un momento\nEn Tus atrios\nNo quisiera nada más\nEn Tu mesa\nA Tu lado\nNo quisiera nada más//\n\nCORO\n//Mi esperanza está\nEn que regresarás\nY poder disfrutar\nDe Ti para siempre//`}
 ];
 
-let library = [], setlist = [], viewIdx = -1, editIdx = -1;
+var library = [], setlist = [], viewIdx = -1, editIdx = -1;
 
-function lsGet(k){try{const v=localStorage.getItem(k);return v?JSON.parse(v):null;}catch{return null;}}
-function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch{}}
+// ── SUPABASE CONFIG ───────────────────────────────────────────────────────────
+var SB_URL = 'https://zgkpprzfspzvneslrxlt.supabase.co';
+var SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inpna3Bwcnpmc3B6dm5lc2xyeGx0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI4NDcyODQsImV4cCI6MjA5ODQyMzI4NH0.OmcLXov0SpczoJ1kAfPGTvp0OUTlQwLY7I1avg9QumE';
 
-function init(){
+function sbFetch(path, opts){
+  return fetch(SB_URL+'/rest/v1/'+path, Object.assign({
+    headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json','Prefer':'return=representation'}
+  }, opts));
+}
+
+// ── INIT ─────────────────────────────────────────────────────────────────────
+async function init(){
+  document.getElementById('svc-date').value = new Date().toISOString().split('T')[0];
+  setStatus('Loading library…','info');
   try {
     const master = MASTER_LIBRARY.map(s => ({...s, addedDate: s.addedDate||'2026-05-29'}));
-    // Custom songs saved separately — never wiped by master updates
-    let customSongs = [];
-    try { customSongs = lsGet('worship-custom-songs-v1') || []; } catch(e){}
-    // Also check old storage for any custom songs saved there before this fix
-    try {
-      const old = lsGet('worship-library-v4') || [];
-      const masterTitles = new Set(master.map(s=>s.title.toLowerCase()));
-      const rescued = old.filter(s => !masterTitles.has(s.title.toLowerCase()) && s.custom);
-      if(rescued.length){
-        const already = new Set(customSongs.map(s=>s.title.toLowerCase()));
-        rescued.forEach(s=>{ if(!already.has(s.title.toLowerCase())) customSongs.push(s); });
-        lsSet('worship-custom-songs-v1', customSongs);
-      }
-    } catch(e){}
+    // Load custom songs from Supabase
+    const res = await sbFetch('custom_songs?select=*&order=created_at.asc');
+    const customSongs = res.ok ? (await res.json()).map(r=>({
+      title:r.title, section:r.section, artist:r.artist||'',
+      language:r.language||'Bilingual (EN/ES)', lyrics:r.lyrics||'',
+      addedDate:r.added_date||'2026-05-29', custom:true, _sbId:r.id
+    })) : [];
     library = [...master, ...customSongs];
-    lsSet('worship-library-v4', library);
+    setStatus('','info');
   } catch(e) {
     library = MASTER_LIBRARY.slice();
+    setStatus('Offline — using local library.','info');
   }
-  loadCustomMedleys();
-  document.getElementById('svc-date').value = new Date().toISOString().split('T')[0];
+  await loadCustomMedleys();
   renderLibrary();
   renderStats();
 }
 
-function resetLibrary(){
-  if(!confirm('Reset library to all songs from your Drive docs? This will overwrite any custom changes.')) return;
-  library = MASTER_LIBRARY.map(s => ({...s, addedDate: s.addedDate||'2026-05-29'}));
-  lsSet('worship-library-v4', library);
+async function resetLibrary(){
+  if(!confirm('Reload master library? Your custom-added songs will still be here.')) return;
+  const master = MASTER_LIBRARY.map(s => ({...s, addedDate: s.addedDate||'2026-05-29'}));
+  try {
+    const res = await sbFetch('custom_songs?select=*&order=created_at.asc');
+    const customSongs = res.ok ? (await res.json()).map(r=>({
+      title:r.title, section:r.section, artist:r.artist||'',
+      language:r.language||'Bilingual (EN/ES)', lyrics:r.lyrics||'',
+      addedDate:r.added_date||'2026-05-29', custom:true, _sbId:r.id
+    })) : [];
+    library = [...master, ...customSongs];
+  } catch(e){ library = master; }
   renderLibrary(); renderStats();
-  setStatus(`Library reset — ${library.length} songs loaded.`, 'success');
+  setStatus(`Library reloaded — ${library.length} songs.`, 'success');
 }
 
 function setStatus(msg,type){
@@ -928,17 +940,22 @@ function addMedleyByIndex(ri){
 }
 
 // ── CUSTOM MEDLEY BUILDER ─────────────────────────────────────────────────────
-var CUSTOM_MEDLEY_KEY = 'worship-custom-medleys-v1';
 var customMedleys = [];
 var builderSongs = []; // songs currently added to the builder form
 
-function loadCustomMedleys(){
-  try { customMedleys = JSON.parse(localStorage.getItem(CUSTOM_MEDLEY_KEY) || '[]'); }
-  catch(e){ customMedleys = []; }
+async function loadCustomMedleys(){
+  try {
+    const res = await sbFetch('custom_medleys?select=*&order=created_at.asc');
+    if(res.ok){
+      customMedleys = (await res.json()).map(r=>({
+        name:r.name, songs:r.songs||[], note:r.note||'', _sbId:r.id
+      }));
+    }
+  } catch(e){ customMedleys = []; }
 }
 
-function saveCustomMedleysToStorage(){
-  localStorage.setItem(CUSTOM_MEDLEY_KEY, JSON.stringify(customMedleys));
+async function saveCustomMedleysToStorage(){
+  // Handled per-item in saveCustomMedley / deleteCustomMedley
 }
 
 function toggleMedleyBuilder(){
@@ -1029,28 +1046,35 @@ function renderBuilderSelected(){
   el.innerHTML = html;
 }
 
-function saveCustomMedley(){
+async function saveCustomMedley(){
   var name = (document.getElementById('new-medley-name').value || '').trim();
   if(!name){ setStatus('Give the medley a name first.','error'); return; }
   if(!builderSongs.length){ setStatus('Add at least one song.','error'); return; }
   var note = (document.getElementById('new-medley-note').value || '').trim();
-  customMedleys.push({
-    name: name,
-    songs: builderSongs.map(function(s){ return s.title; }),
-    note: note || 'Custom medley',
-    type: 'medley',
-    custom: true
-  });
-  saveCustomMedleysToStorage();
-  cancelMedleyBuilder();
-  renderMedley();
-  setStatus('Medley "'+name+'" saved!','success');
+  var songs = builderSongs.map(function(s){ return s.title; });
+  setStatus('Saving medley…','info');
+  try {
+    const res = await sbFetch('custom_medleys', {
+      method:'POST',
+      body: JSON.stringify({name, songs, note: note||'Custom medley'})
+    });
+    if(!res.ok) throw new Error();
+    cancelMedleyBuilder();
+    await loadCustomMedleys();
+    renderMedley();
+    setStatus('Medley "'+name+'" saved!','success');
+  } catch(e){ setStatus('Could not save medley — check connection.','error'); }
 }
 
-function deleteCustomMedley(ci){
+async function deleteCustomMedley(ci){
   if(!confirm('Delete this custom medley?')) return;
-  customMedleys.splice(ci, 1);
-  saveCustomMedleysToStorage();
+  var m = customMedleys[ci];
+  if(m && m._sbId){
+    try {
+      await sbFetch('custom_medleys?id=eq.'+m._sbId, {method:'DELETE'});
+    } catch(e){}
+  }
+  await loadCustomMedleys();
   renderMedley();
   setStatus('Custom medley deleted.','info');
 }
@@ -1232,10 +1256,10 @@ function switchMain(tab){
     document.getElementById('pane-'+t).style.display = t===tab?'block':'none';
     document.querySelectorAll('#main-tabs .tab')[i].classList.toggle('active', t===tab);
   });
+  if(tab==='setlist'){renderSetlist();}
   if(tab==='library'){renderLibrary(); renderStats();}
   if(tab==='medley'){
-    loadCustomMedleys();
-    renderMedley();
+    loadCustomMedleys().then(()=>renderMedley());
     const dl = document.getElementById('medley-datalist');
     if(dl) dl.innerHTML = library.map(s=>`<option value="${s.title}">`).join('');
   }
@@ -1272,7 +1296,7 @@ function changeSection(i, newSection){
   setlist[i].section = newSection;
   renderSetlist();
 }
-let dragSrc=null;
+var dragSrc=null;
 function ds(e,i){dragSrc=i;}
 function dv(e){e.preventDefault();}
 function dp(e,i){e.preventDefault();if(dragSrc===null||dragSrc===i)return;const m=setlist.splice(dragSrc,1)[0];setlist.splice(i,0,m);dragSrc=null;renderSetlist();}
@@ -1390,15 +1414,14 @@ function confirmDeleteSong(i, btn){
   _deletePending[i] = { timer };
 }
 
-function deleteSong(i){
-  const t=library[i].title;
+async function deleteSong(i){
+  const song=library[i];
+  const t=song.title;
+  // Remove from Supabase if it's a custom song
+  if(song.custom && song._sbId){
+    try { await sbFetch('custom_songs?id=eq.'+song._sbId, {method:'DELETE'}); } catch(e){}
+  }
   library.splice(i,1);
-  lsSet('worship-library-v4',library);
-  // Also remove from custom songs key if it was a custom song
-  try{
-    const cs=(lsGet('worship-custom-songs-v1')||[]).filter(s=>s.title.toLowerCase()!==t.toLowerCase());
-    lsSet('worship-custom-songs-v1',cs);
-  }catch(e){}
   renderLibrary(); renderStats();
   setStatus(`"${t}" removed.`, 'info');
 }
@@ -1426,14 +1449,22 @@ function openEdit(i){
   document.getElementById('edit-overlay').classList.add('open');
 }
 function closeEdit(){document.getElementById('edit-overlay').classList.remove('open');}
-function saveEdit(){
+async function saveEdit(){
   const s=library[editIdx];
   s.title=document.getElementById('edit-title').value.trim()||s.title;
   s.section=document.getElementById('edit-section').value;
   s.artist=document.getElementById('edit-artist').value.trim();
   s.language=document.getElementById('edit-lang').value;
   s.lyrics=document.getElementById('edit-lyrics').value;
-  lsSet('worship-library-v4',library);
+  // Sync to Supabase if it's a custom song
+  if(s.custom && s._sbId){
+    try {
+      await sbFetch('custom_songs?id=eq.'+s._sbId, {
+        method:'PATCH',
+        body: JSON.stringify({title:s.title, section:s.section, artist:s.artist, language:s.language, lyrics:s.lyrics})
+      });
+    } catch(e){}
+  }
   renderLibrary(); renderStats(); closeEdit();
   setStatus(`"${s.title}" updated.`, 'success');
 }
@@ -1509,9 +1540,13 @@ async function importFile(fileId, fileName, mode){
     });
     const data=await res.json();
     const lyrics=data.content.filter(b=>b.type==='text').map(b=>b.text).join('\n');
-    const song={title:fileName, section, artist:'', language:'Bilingual (EN/ES)', addedDate:new Date().toISOString().split('T')[0], lyrics, custom:true};
-    library.push(song); lsSet('worship-library-v4',library); renderLibrary(); renderStats();
-    try{ const cs=lsGet('worship-custom-songs-v1')||[]; cs.push(song); lsSet('worship-custom-songs-v1',cs); }catch(e){}
+    const sbRes = await sbFetch('custom_songs', {
+      method:'POST',
+      body: JSON.stringify({title:fileName, section, artist:'', language:'Bilingual (EN/ES)', lyrics, added_date:new Date().toISOString().split('T')[0]})
+    });
+    const [saved] = sbRes.ok ? await sbRes.json() : [{}];
+    const song={title:fileName, section, artist:'', language:'Bilingual (EN/ES)', addedDate:new Date().toISOString().split('T')[0], lyrics, custom:true, _sbId:saved.id};
+    library.push(song); renderLibrary(); renderStats();
     if(mode==='setlist'){addToSetlist(song,section);closeDriveModal();switchMain('setlist');}
     else{targetEl.innerHTML=`<span style="color:#27500a">✓ "${fileName}" saved to library.</span>`;}
     setStatus(`"${fileName}" imported.`, 'success');
@@ -1537,17 +1572,27 @@ async function formatLyrics(){
   }catch{setStatus('Formatting failed.','error');}
 }
 
-function saveNewSong(){
+async function saveNewSong(){
   const title=document.getElementById('new-title').value.trim();
   const lyrics=document.getElementById('new-lyrics').value.trim();
   if(!title){setStatus('Enter a song title.','error');return;}
   if(!lyrics){setStatus('Add some lyrics.','error');return;}
-  const song={title, section:document.getElementById('new-section').value, artist:document.getElementById('new-artist').value.trim(), language:document.getElementById('new-lang').value, addedDate:new Date().toISOString().split('T')[0], lyrics, custom:true};
-  library.push(song); lsSet('worship-library-v4',library);
-  // Also save to separate custom key so it survives master library updates
-  try{ const cs=lsGet('worship-custom-songs-v1')||[]; cs.push(song); lsSet('worship-custom-songs-v1',cs); }catch(e){}
-  document.getElementById('new-title').value=''; document.getElementById('new-lyrics').value=''; document.getElementById('new-artist').value='';
-  renderStats(); setStatus(`"${title}" saved to library.`,'success');
+  const section=document.getElementById('new-section').value;
+  const artist=document.getElementById('new-artist').value.trim();
+  const language=document.getElementById('new-lang').value;
+  setStatus('Saving…','info');
+  try {
+    const res = await sbFetch('custom_songs', {
+      method:'POST',
+      body: JSON.stringify({title, section, artist, language, lyrics, added_date: new Date().toISOString().split('T')[0]})
+    });
+    if(!res.ok) throw new Error();
+    const [saved] = await res.json();
+    const song={title, section, artist, language, lyrics, addedDate:saved.added_date, custom:true, _sbId:saved.id};
+    library.push(song);
+    document.getElementById('new-title').value=''; document.getElementById('new-lyrics').value=''; document.getElementById('new-artist').value='';
+    renderLibrary(); renderStats(); setStatus(`"${title}" saved to library.`,'success');
+  } catch(e){ setStatus('Could not save — check connection.','error'); }
 }
 
 // ── PREVIEW ──────────────────────────────────────────────────────────────────
