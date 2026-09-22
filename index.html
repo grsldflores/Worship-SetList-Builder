@@ -259,7 +259,7 @@
       </div>
       <div class="field"><label>Lyrics</label><textarea id="new-lyrics" rows="7" placeholder="Paste lyrics here…"></textarea></div>
       <div class="btn-row">
-        <button onclick="formatLyrics()">✨ Auto-format with AI</button>
+        <button onclick="formatLyrics()">✨ Auto Format</button>
         <button class="primary" onclick="saveNewSong()">Save Save to library</button>
       </div>
     </div>
@@ -295,7 +295,7 @@
     <div class="lyrics-prev" id="view-lyrics-el" style="max-height:300px"></div>
     <div class="btn-row">
       <button class="primary" onclick="addToSetlistFromView()">+ Add to setlist</button>
-      <button onclick="openEdit(viewIdx)">Edit Edit</button>
+      <button onclick="openEdit(viewIdx)">✏️ Edit lyrics</button>
       <button onclick="closeView()">Close</button>
     </div>
   </div>
@@ -766,21 +766,24 @@ function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch{}}
 
 function init(){
   try {
-    // Always start from MASTER_LIBRARY to ensure all songs are present
     const master = MASTER_LIBRARY.map(s => ({...s, addedDate: s.addedDate||'2026-05-29'}));
-    // Merge in any custom songs the user added manually
-    let saved = null;
-    try { saved = lsGet('worship-library-v4'); } catch(e){}
-    if(saved && saved.length > 0){
+    // Custom songs saved separately — never wiped by master updates
+    let customSongs = [];
+    try { customSongs = lsGet('worship-custom-songs-v1') || []; } catch(e){}
+    // Also check old storage for any custom songs saved there before this fix
+    try {
+      const old = lsGet('worship-library-v4') || [];
       const masterTitles = new Set(master.map(s=>s.title.toLowerCase()));
-      const custom = saved.filter(s => !masterTitles.has(s.title.toLowerCase()));
-      library = [...master, ...custom];
-    } else {
-      library = master;
-    }
+      const rescued = old.filter(s => !masterTitles.has(s.title.toLowerCase()) && s.custom);
+      if(rescued.length){
+        const already = new Set(customSongs.map(s=>s.title.toLowerCase()));
+        rescued.forEach(s=>{ if(!already.has(s.title.toLowerCase())) customSongs.push(s); });
+        lsSet('worship-custom-songs-v1', customSongs);
+      }
+    } catch(e){}
+    library = [...master, ...customSongs];
     lsSet('worship-library-v4', library);
   } catch(e) {
-    // Fallback — load master directly if anything fails
     library = MASTER_LIBRARY.slice();
   }
   loadCustomMedleys();
@@ -1304,18 +1307,49 @@ function renderLibrary(){
         <div class="song-title">${s.title}</div>
         <div style="margin-top:3px;display:flex;gap:4px;flex-wrap:wrap">${getBadge(s.section)}${s.artist?`<span class="badge special">${s.artist}</span>`:''}</div>
       </div>
-      <button class="icon-btn" onclick="viewSong(${i})" title="View lyrics"></button>
-      <button class="icon-btn" onclick="addToSetlist(library[${i}]); switchMain('setlist')" title="Add to setlist">✓</button>
-      <button class="icon-btn danger" onclick="deleteSong(${i})" title="Delete">Del</button>
+      <button class="icon-btn" onclick="viewSong(${i})" title="View lyrics">📋</button>
+      <button class="icon-btn" onclick="editSongLyrics(${i})" title="Edit lyrics">✏️</button>
+      <button class="icon-btn" onclick="addToSetlist(library[${i}]); switchMain('setlist')" title="Add to setlist">＋</button>
+      <button class="icon-btn danger" id="del-btn-${i}" onclick="confirmDeleteSong(${i}, this)" title="Delete">🗑️</button>
     </div>`;
   }).join('');
 }
 
+var _deletePending = {};
+function confirmDeleteSong(i, btn){
+  if(_deletePending[i]){
+    // Second click — actually delete
+    clearTimeout(_deletePending[i].timer);
+    delete _deletePending[i];
+    deleteSong(i);
+    return;
+  }
+  // First click — arm the button
+  btn.textContent = 'Delete?';
+  btn.style.background = '#fcebeb';
+  btn.style.color = '#791f1f';
+  btn.style.border = '1px solid #f5c6c6';
+  btn.style.borderRadius = '6px';
+  btn.style.padding = '3px 8px';
+  btn.style.fontSize = '12px';
+  // Auto-reset after 3 seconds if not confirmed
+  const timer = setTimeout(()=>{
+    btn.textContent = '🗑️';
+    btn.style = '';
+    delete _deletePending[i];
+  }, 3000);
+  _deletePending[i] = { timer };
+}
+
 function deleteSong(i){
   const t=library[i].title;
-  if(!confirm(`Remove "${t}" from your library?\n\nThis cannot be undone.`)) return;
   library.splice(i,1);
   lsSet('worship-library-v4',library);
+  // Also remove from custom songs key if it was a custom song
+  try{
+    const cs=(lsGet('worship-custom-songs-v1')||[]).filter(s=>s.title.toLowerCase()!==t.toLowerCase());
+    lsSet('worship-custom-songs-v1',cs);
+  }catch(e){}
   renderLibrary(); renderStats();
   setStatus(`"${t}" removed.`, 'info');
 }
@@ -1332,6 +1366,7 @@ function closeView(){document.getElementById('view-overlay').classList.remove('o
 function addToSetlistFromView(){addToSetlist(library[viewIdx]);closeView();switchMain('setlist');}
 
 // ── EDIT MODAL ───────────────────────────────────────────────────────────────
+function editSongLyrics(i){ openEdit(i); }
 function openEdit(i){
   closeView(); editIdx=i; const s=library[i];
   document.getElementById('edit-title').value=s.title;
@@ -1425,8 +1460,9 @@ async function importFile(fileId, fileName, mode){
     });
     const data=await res.json();
     const lyrics=data.content.filter(b=>b.type==='text').map(b=>b.text).join('\n');
-    const song={title:fileName, section, artist:'', language:'Bilingual (EN/ES)', addedDate:new Date().toISOString().split('T')[0], lyrics};
+    const song={title:fileName, section, artist:'', language:'Bilingual (EN/ES)', addedDate:new Date().toISOString().split('T')[0], lyrics, custom:true};
     library.push(song); lsSet('worship-library-v4',library); renderLibrary(); renderStats();
+    try{ const cs=lsGet('worship-custom-songs-v1')||[]; cs.push(song); lsSet('worship-custom-songs-v1',cs); }catch(e){}
     if(mode==='setlist'){addToSetlist(song,section);closeDriveModal();switchMain('setlist');}
     else{targetEl.innerHTML=`<span style="color:#27500a">✓ "${fileName}" saved to library.</span>`;}
     setStatus(`"${fileName}" imported.`, 'success');
@@ -1457,8 +1493,10 @@ function saveNewSong(){
   const lyrics=document.getElementById('new-lyrics').value.trim();
   if(!title){setStatus('Enter a song title.','error');return;}
   if(!lyrics){setStatus('Add some lyrics.','error');return;}
-  const song={title, section:document.getElementById('new-section').value, artist:document.getElementById('new-artist').value.trim(), language:document.getElementById('new-lang').value, addedDate:new Date().toISOString().split('T')[0], lyrics};
+  const song={title, section:document.getElementById('new-section').value, artist:document.getElementById('new-artist').value.trim(), language:document.getElementById('new-lang').value, addedDate:new Date().toISOString().split('T')[0], lyrics, custom:true};
   library.push(song); lsSet('worship-library-v4',library);
+  // Also save to separate custom key so it survives master library updates
+  try{ const cs=lsGet('worship-custom-songs-v1')||[]; cs.push(song); lsSet('worship-custom-songs-v1',cs); }catch(e){}
   document.getElementById('new-title').value=''; document.getElementById('new-lyrics').value=''; document.getElementById('new-artist').value='';
   renderStats(); setStatus(`"${title}" saved to library.`,'success');
 }
