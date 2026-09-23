@@ -2216,6 +2216,25 @@ function cleanKey(k){
 function scrubNames(text){
   return String(text||'').replace(/^(\s*)(RYAN|KAREN|CANDY)\s*:/gim,'$1SOLO:').replace(TEAM_NAMES,'');
 }
+// Lyrics always go out in Title Case ("in the mighty name" → "In The Mighty Name").
+// Labels in capitals (VERSE 1, CORO) and cues (SOLO:, NOSOTROS | ECOS:) are left as they are.
+function titleCaseLine(t){
+  return t.replace(/(^|[\s\/(\[¡¿"“—–-])(\p{L})(\p{L}*)/gu, function(_, pre, first, rest){ return pre + first.toLocaleUpperCase('es') + rest.toLocaleLowerCase('es'); });
+}
+function titleCaseLineFix(t){
+  return titleCaseLine(t).replace(/(^|\s)(['‘])(\p{L})/gu, function(_, a, q, l){ return a + q + l.toLocaleUpperCase('es'); }); // 'cause → 'Cause
+}
+function titleCaseLyrics(text){
+  return String(text||'').split('\n').map(function(line){
+    var t=line.trim();
+    if(!t) return line;
+    if(/[A-ZÁÉÍÓÚÑÜ]{2}/.test(t) && !/[a-záéíóúñü]/.test(t)) return line;   // label / instruction
+    var cue=line.match(/^\s*[A-ZÁÉÍÓÚÑÜ][A-ZÁÉÍÓÚÑÜ |]*:/);
+    if(cue) return cue[0] + titleCaseLineFix(line.slice(cue[0].length));
+    return titleCaseLineFix(line);
+  }).join('\n');
+}
+
 function currentLyrics(s){
   var lib=findLibrarySong(s.title);
   return (lib && lib.lyrics) || s.lyrics || '';
@@ -2229,7 +2248,7 @@ async function sendSetlistToDocs(){
   const order=['Praise/Avivamiento','Worship/Adoración','Offering/Ofrenda','Altar Call','Special','Extra'];
   const names=order.concat(setlist.map(function(s){return s.section||'Special';}).filter(function(x,i,a){return order.indexOf(x)<0 && a.indexOf(x)===i;}));
   const sections=names.map(function(n){
-    return {name:n, songs:setlist.filter(function(s){return (s.section||'Special')===n;}).map(function(s){ return {title:s.title, key:cleanKey(s.key), lyrics:scrubNames(currentLyrics(s))}; })};
+    return {name:n, songs:setlist.filter(function(s){return (s.section||'Special')===n;}).map(function(s){ return {title:s.title, key:cleanKey(s.key), lyrics:titleCaseLyrics(scrubNames(currentLyrics(s)))}; })};
   }).filter(function(x){return x.songs.length;});
   let docTitle=svcTitle;
   if(date){
@@ -2285,7 +2304,7 @@ function buildSetlistCopy(){
     text+='\n'+sec.name.toUpperCase()+'\n\n';
     html+='<h1 style="page-break-before:always;color:'+colors.section+';font-size:20pt;margin:0 0 8pt">'+escHtml(sec.name.toUpperCase())+'</h1>';
     sec.songs.forEach(s=>{
-      const ly=scrubNames(currentLyrics(s));
+      const ly=titleCaseLyrics(scrubNames(currentLyrics(s)));
       text+=s.title+'\n\n'+ly+'\n\n';
       html+='<h2 style="color:'+colors.song+';font-size:20pt;margin:14pt 0 4pt">'+escHtml(s.title)+'</h2>'+ly.split('\n').map(l=>lyricLineHTML(l, colors.cue)).join('');
     });
@@ -2336,6 +2355,6 @@ function exportJSON(){
 
 init();
 </script>
-<div id="app-version" style="position:fixed;right:10px;bottom:6px;font-size:10px;color:#9a9a9a;font-family:system-ui,sans-serif;opacity:.8;pointer-events:none;z-index:40">v41 · Sep 23, 2026</div>
+<div id="app-version" style="position:fixed;right:10px;bottom:6px;font-size:10px;color:#9a9a9a;font-family:system-ui,sans-serif;opacity:.8;pointer-events:none;z-index:40">v42 · Sep 23, 2026</div>
 </body>
 </html>
