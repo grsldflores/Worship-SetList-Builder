@@ -58,7 +58,8 @@
   @keyframes spin { to { transform: rotate(360deg); } }
   .lyrics-prev { background: #f7f6f3; border-radius: var(--radius); padding: 10px 12px; font-size: 12px; white-space: pre-wrap; max-height: 160px; overflow-y: auto; color: #6b6b6b; line-height: 1.6; margin-top: 6px; font-family: system-ui, sans-serif; }
   .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px,1fr)); gap: 8px; margin-bottom: 1rem; }
-  .stat { background: #f7f6f3; border-radius: var(--radius); padding: .75rem 1rem; }
+  .stat { background: #f7f6f3; border-radius: var(--radius); padding: .75rem 1rem; transition: background .15s; }
+  .stat:hover { background: #eeedfe; }
   .stat-n { font-size: 22px; font-weight: 500; color: #1a1a1a; font-family: system-ui, sans-serif; }
   .stat-l { font-size: 12px; color: #6b6b6b; margin-top: 2px; font-family: system-ui, sans-serif; }
   .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
@@ -116,14 +117,17 @@
     <div class="stat-grid" id="lib-stats"></div>
     <div class="search-row">
       <input type="text" id="lib-search" placeholder="Search songs, lyrics, artist…" oninput="renderLibrary()" style="flex:1" />
-      <select id="lib-filter" onchange="renderLibrary()" style="width:auto">
+      <select id="lib-filter" onchange="renderLibrary()" oninput="renderLibrary()" style="width:auto">
         <option value="">All sections</option>
-        <option>Praise/Avivamiento</option>
-        <option>Worship/Adoración</option>
-        <option>Offering/Ofrenda</option>
-        <option>Altar Call</option>
-        <option>Special</option>
-      <option>Extra</option>
+        <option value="bilingual">Bilingual</option>
+        <option value="praise">Praise</option>
+        <option value="worship">Worship</option>
+        <option value="Praise/Avivamiento">Praise/Avivamiento</option>
+        <option value="Worship/Adoración">Worship/Adoración</option>
+        <option value="Offering/Ofrenda">Offering/Ofrenda</option>
+        <option value="Altar Call">Altar Call</option>
+        <option value="Special">Special</option>
+        <option value="Extra">Extra</option>
       </select>
     </div>
     <div class="card" style="padding:0 1.25rem"><div id="lib-rows"></div></div>
@@ -1457,25 +1461,41 @@ function addToSetlist(song, section){
 
 // ── LIBRARY ──────────────────────────────────────────────────────────────────
 function renderStats(){
-  const secs={};library.forEach(s=>{secs[s.section]=(secs[s.section]||0)+1;});
+  const praiseCount = library.filter(s=>s.section==='Praise/Avivamiento'||s.section==='Offering/Ofrenda').length;
+  const worshipCount = library.filter(s=>s.section==='Worship/Adoración'||s.section==='Altar Call').length;
+  const bilingualCount = library.filter(s=>s.language&&s.language.includes('Bilingual')).length;
   document.getElementById('lib-stats').innerHTML=`
-    <div class="stat"><div class="stat-n">${library.length}</div><div class="stat-l">Songs saved</div></div>
-    <div class="stat"><div class="stat-n">${library.filter(s=>s.language&&s.language.includes('Bilingual')).length}</div><div class="stat-l">Bilingual</div></div>
-    <div class="stat"><div class="stat-n">${Object.keys(secs).length}</div><div class="stat-l">Sections</div></div>
-    <div class="stat"><div class="stat-n">${secs['Altar Call']||0}</div><div class="stat-l">Altar Call songs</div></div>`;
+    <div class="stat" onclick="setLibFilter('')" style="cursor:pointer" title="Show all"><div class="stat-n">${library.length}</div><div class="stat-l">All Songs</div></div>
+    <div class="stat" onclick="setLibFilter('bilingual')" style="cursor:pointer" title="Filter bilingual"><div class="stat-n">${bilingualCount}</div><div class="stat-l">Bilingual</div></div>
+    <div class="stat" onclick="setLibFilter('praise')" style="cursor:pointer" title="Filter Praise &amp; Ofrenda"><div class="stat-n">${praiseCount}</div><div class="stat-l">Praise</div></div>
+    <div class="stat" onclick="setLibFilter('worship')" style="cursor:pointer" title="Filter Worship &amp; Altar Call"><div class="stat-n">${worshipCount}</div><div class="stat-l">Worship</div></div>`;
+}
+
+function setLibFilter(val){
+  document.getElementById('lib-filter').value = val;
+  renderLibrary();
 }
 
 function renderLibrary(){
-  const q=(document.getElementById('lib-search').value||'').toLowerCase();
+  const src = (library && library.length) ? library : MASTER_LIBRARY;
+  const q=(document.getElementById('lib-search').value||'').toLowerCase().trim();
   const sec=document.getElementById('lib-filter').value;
-  const filtered=library.filter(s=>
-    (!q || s.title.toLowerCase().includes(q) || (s.lyrics||'').toLowerCase().includes(q) || (s.artist||'').toLowerCase().includes(q)) &&
-    (!sec || s.section===sec)
-  );
+  const filtered=src.filter(s=>{
+    const matchQ = !q || s.title.toLowerCase().includes(q) || (s.lyrics||'').toLowerCase().includes(q) || (s.artist||'').toLowerCase().includes(q);
+    let matchSec = true;
+    if(sec==='bilingual') matchSec = s.language && s.language.includes('Bilingual');
+    else if(sec==='praise') matchSec = s.section==='Praise/Avivamiento' || s.section==='Offering/Ofrenda';
+    else if(sec==='worship') matchSec = s.section==='Worship/Adoración' || s.section==='Altar Call';
+    else if(sec) matchSec = s.section===sec;
+    return matchQ && matchSec;
+  });
+  // dedupe by title (in case Supabase has duplicates)
+  const seen=new Set();
+  const deduped=filtered.filter(s=>{ if(seen.has(s.title)) return false; seen.add(s.title); return true; });
   const el=document.getElementById('lib-rows');
-  if(!filtered.length){el.innerHTML=`<div class="empty">${library.length===0?'Library empty.':'No matches.'}</div>`;return;}
-  el.innerHTML=filtered.map(s=>{
-    const i=library.indexOf(s);
+  if(!deduped.length){el.innerHTML=`<div class="empty">${src.length===0?'Library empty.':'No matches.'}</div>`;return;}
+  el.innerHTML=deduped.map(s=>{
+    const i=src.indexOf(s);
     return `<div class="song-row">
       <div style="flex:1;min-width:0">
         <div class="song-title">${s.title}</div>
