@@ -122,6 +122,11 @@
         <input type="color" id="doc-color-cue" onchange="saveDocColors()" oninput="saveDocColors()" style="width:34px;height:26px;padding:0;border:0.5px solid var(--border2);border-radius:6px;background:none;cursor:pointer" /></label>
       <button onclick="resetDocColors()" style="font-size:11px;padding:3px 10px">Reset</button>
     </div>
+    <details class="card" id="history-card" style="margin-top:12px;padding:12px 1.25rem">
+      <summary style="cursor:pointer;font-size:13px;font-family:system-ui,sans-serif;color:var(--text2);font-weight:500">📅 Past setlists <span id="history-count"></span></summary>
+      <div style="font-size:12px;color:var(--text3);font-family:system-ui,sans-serif;margin:8px 0 4px">Saved automatically when you send to Google Docs or copy the setlist. <b>Load</b> puts a past setlist back in the builder.</div>
+      <div id="history-rows"></div>
+    </details>
   </div>
 
   <!-- LIBRARY -->
@@ -147,7 +152,8 @@
     <div class="btn-row">
       <button onclick="backupToDrive()">Back up to Drive</button>
       <button onclick="exportJSON()">Download JSON</button>
-      <button onclick="resetLibrary(this)" style="color:#791f1f">Reset library</button>
+      <button onclick="openQuickKeys()">🎹 Add missing keys</button>
+      <button onclick="resetLibrary(this)">Reload library</button>
     </div>
     <details class="card" id="deleted-card" style="margin-top:12px;padding:12px 1.25rem">
       <summary style="cursor:pointer;font-size:13px;font-family:system-ui,sans-serif;color:var(--text2);font-weight:500">🗑 Recently deleted <span id="deleted-count"></span></summary>
@@ -288,15 +294,6 @@
       </div>
     </div>
 
-    <div class="card" style="margin-top:12px">
-      <label>Custom songs</label>
-      <p style="font-size:12px;color:var(--text2);font-family:system-ui,sans-serif;margin:4px 0 10px">These are songs you've added manually (stored in Supabase). Export them to get them added to the master library permanently.</p>
-      <div class="btn-row">
-        <button onclick="exportCustomSongs()">⬇ Export custom songs</button>
-        <button onclick="mergeCustomIntoMaster()" style="background:var(--surface2)">⚡ Merge into master (this session)</button>
-      </div>
-      <div id="custom-export-status" style="font-size:12px;color:var(--text2);font-family:system-ui,sans-serif;margin-top:8px"></div>
-    </div>
   </div>
 </div>
 
@@ -328,6 +325,51 @@
     <div id="key-song-title" style="font-size:13px;color:var(--text2);font-family:system-ui,sans-serif;margin-bottom:12px"></div>
     <div id="key-options" style="display:flex;flex-direction:column;gap:8px"></div>
     <div class="btn-row" style="margin-top:12px"><button onclick="closeKeyPicker()">Cancel</button></div>
+  </div>
+</div>
+
+<div class="overlay" id="pass-overlay">
+  <div class="modal" style="max-width:360px">
+    <h3 style="margin-bottom:4px">🔒 Team passcode</h3>
+    <div id="pass-msg" style="font-size:13px;color:var(--text2);font-family:system-ui,sans-serif;margin-bottom:12px"></div>
+    <input type="password" id="pass-input" autocomplete="current-password" placeholder="Passcode" onkeydown="if(event.key==='Enter')submitPasscode()" />
+    <div class="btn-row" style="margin-top:12px">
+      <button class="primary" id="pass-ok" onclick="submitPasscode()">Unlock</button>
+      <button onclick="cancelPasscode()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="dup-overlay">
+  <div class="modal" style="max-width:360px">
+    <h3 style="margin-bottom:4px">Already in the setlist</h3>
+    <div id="dup-song-title" style="font-size:13px;color:var(--text2);font-family:system-ui,sans-serif;margin-bottom:12px"></div>
+    <div class="btn-row">
+      <button onclick="closeDupConfirm(true)">Add again</button>
+      <button class="primary" onclick="closeDupConfirm(false)">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="qk-overlay">
+  <div class="modal" style="max-width:420px">
+    <div id="qk-count" style="font-size:11px;color:var(--text3);font-family:system-ui,sans-serif;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px"></div>
+    <h3 id="qk-title" style="margin-bottom:6px"></h3>
+    <div id="qk-meta" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px"></div>
+    <div class="lyrics-prev" id="qk-lyrics" style="max-height:110px;margin-bottom:10px"></div>
+    <div id="qk-notes" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px"></div>
+    <div class="two-col" style="margin-bottom:0">
+      <div class="field"><label>Key</label><input type="text" id="qk-key" placeholder="e.g. G or Bm" onkeydown="if(event.key==='Enter')qkSave()" /></div>
+      <div class="field"><label>Piano player</label>
+        <select id="qk-player"><option value="">— none —</option><option>Ryan</option><option>Karen</option><option>Candy</option></select>
+      </div>
+    </div>
+    <div id="qk-msg" style="font-size:12px;color:#791f1f;font-family:system-ui,sans-serif;min-height:16px"></div>
+    <div class="btn-row">
+      <button class="primary" id="qk-save" onclick="qkSave()">Save &amp; next</button>
+      <button onclick="qkSkip()">Skip</button>
+      <button onclick="closeQuickKeys()">Close</button>
+    </div>
   </div>
 </div>
 
@@ -856,26 +898,88 @@ function sbFetch(path, opts){
   return fetch(SB_URL+'/rest/v1/'+path, Object.assign({headers:headers}, opts));
 }
 
-function mapSbRow(r){
-  return {title:r.title, section:r.section, artist:r.artist||'',
+function mapSongRow(r){
+  return {title:r.title, section:r.section||'Special', artist:r.artist||'',
     language:r.language||'Bilingual (EN/ES)', key:r.key||'', lyrics:r.lyrics||'',
-    addedDate:r.added_date||'2026-05-29', custom:true, _sbId:r.id,
-    _masterTitle:r.master_title||null, _hidden:!!r.hidden};
+    addedDate:r.added_date||'2026-05-29', _sbId:r.id};
 }
-// Merge saved rows over the built-in list: a row that edits a built-in song replaces it,
-// a hidden row removes it, and everything else is added at the end.
+// Calls a database function. Wrong passcode comes back as err.code='wrong_passcode'.
+async function sbRpc(name, args){
+  const res = await sbFetch('rpc/'+name, {method:'POST', body: JSON.stringify(args||{})});
+  const txt = await res.text();
+  let data=null; try{ data = txt ? JSON.parse(txt) : null; }catch(e){ data = txt; }
+  if(!res.ok){
+    const msg = (data && (data.message||data.hint||data.details)) || txt || ('HTTP '+res.status);
+    const err = new Error(msg);
+    if(/wrong_passcode/.test(msg)) err.code='wrong_passcode';
+    throw err;
+  }
+  return data;
+}
+
+// ── TEAM PASSCODE (edit / add / delete) ── remembered on this device after the first time
+var USE_PASSCODE=false; // passcode turned off — everyone can edit
+var _passRequired=null, _passResolve=null;
+function storedPass(){ try{ return localStorage.getItem('wbEditPass')||''; }catch(e){ return ''; } }
+function rememberPass(p){ try{ if(p) localStorage.setItem('wbEditPass', p); else localStorage.removeItem('wbEditPass'); }catch(e){} }
+async function passRequired(){
+  if(_passRequired!==null) return _passRequired;
+  try{ _passRequired = !!(await sbRpc('edit_passcode_required', {})); }catch(e){ _passRequired = true; }
+  return _passRequired;
+}
+function askPasscode(msg){
+  return new Promise(function(resolve){
+    _passResolve=resolve;
+    document.getElementById('pass-msg').textContent = msg || 'Enter the team passcode to make changes. This device will remember it.';
+    var inp=document.getElementById('pass-input'); inp.value='';
+    document.getElementById('pass-overlay').classList.add('open');
+    setTimeout(function(){ inp.focus(); }, 60);
+  });
+}
+async function submitPasscode(){
+  var inp=document.getElementById('pass-input'), p=inp.value.trim(), btn=document.getElementById('pass-ok');
+  if(!p){ inp.focus(); return; }
+  btn.disabled=true; btn.textContent='Checking…';
+  try{
+    var ok = await sbRpc('check_edit_passcode', {p:p});
+    if(!ok){ document.getElementById('pass-msg').textContent='That passcode isn\'t right — try again.'; inp.select(); return; }
+    rememberPass(p);
+    document.getElementById('pass-overlay').classList.remove('open');
+    var f=_passResolve; _passResolve=null; if(f) f(p);
+  }catch(e){
+    document.getElementById('pass-msg').textContent='Could not check the passcode — check your connection.';
+  }finally{ btn.disabled=false; btn.textContent='Unlock'; }
+}
+function cancelPasscode(){
+  document.getElementById('pass-overlay').classList.remove('open');
+  var f=_passResolve; _passResolve=null; if(f) f(null);
+}
+function forgetPasscode(){ rememberPass(''); setStatus('Passcode forgotten on this device.','info'); }
+// Runs fn(passcode). Asks for the passcode when needed (or when the saved one stopped working).
+async function withPasscode(fn){
+  if(!_libraryOnline){ setStatus('The song library is offline right now — changes can\'t be saved. Check your connection and reload.','error'); throw Object.assign(new Error('offline'),{code:'cancelled'}); }
+  var p = storedPass();
+  if(!p && USE_PASSCODE && await passRequired()){
+    p = await askPasscode();
+    if(p===null) throw Object.assign(new Error('cancelled'),{code:'cancelled'});
+  }
+  try{ return await fn(p); }
+  catch(e){
+    if(e.code!=='wrong_passcode') throw e;
+    rememberPass('');
+    _passRequired = true;
+    p = await askPasscode('The team passcode has changed — enter the new one.');
+    if(p===null) throw Object.assign(new Error('cancelled'),{code:'cancelled'});
+    return await fn(p);
+  }
+}
+function saveErrorText(e, what){
+  if(e && e.code==='cancelled') return null;
+  return 'Could not '+what+' — check your connection and try again.';
+}
+
+// ── RECENTLY DELETED ──
 var deletedSongs=[];
-function collectDeleted(rows){
-  deletedSongs=(rows||[]).filter(function(r){
-    if(!r || !r.hidden || r.purged) return false;
-    if(!r.master_title && String(r.title||'').indexOf('[restored] ')===0) return false; // already brought back
-    return true;
-  }).map(function(r){
-    var marker = !!r.master_title && !String(r.lyrics||'').trim(); // built-in song that was only hidden
-    return {id:r.id, title:r.master_title||r.title, section:r.section||'', when:r.deleted_at||r.created_at, marker:marker, builtin:!!r.master_title};
-  }).sort(function(a,b){ return String(b.when).localeCompare(String(a.when)); });
-  renderDeleted();
-}
 function renderDeleted(){
   var el=document.getElementById('deleted-rows'); if(!el) return;
   var c=document.getElementById('deleted-count'); if(c) c.textContent=deletedSongs.length?'('+deletedSongs.length+')':'';
@@ -898,82 +1002,67 @@ async function purgeDeleted(di, btn){
   }
   if(btn){ btn.disabled=true; btn.textContent='Deleting…'; }
   try{
-    // Songs you added: erased. Built-in songs live in the app itself, so they stay hidden for good instead.
-    var res = d.builtin
-      ? await sbFetch('custom_songs?id=eq.'+d.id, {method:'PATCH', body: JSON.stringify({purged:true})})
-      : await sbFetch('custom_songs?id=eq.'+d.id, {method:'DELETE'});
-    if(!res.ok) throw new Error(await res.text());
+    await withPasscode(function(p){ return sbRpc('song_purge', {p:p, song_id:d.id}); });
     deletedSongs.splice(di,1); renderDeleted();
     setStatus('"'+d.title+'" deleted for good.','info');
   }catch(e){
     if(btn){ btn.disabled=false; delete btn.dataset.armed; btn.textContent='Delete forever'; }
-    setStatus('Could not delete "'+d.title+'" — check your connection.','error');
+    var m=saveErrorText(e,'delete "'+d.title+'"'); if(m) setStatus(m,'error');
   }
-}
-
-async function reloadLibraryFromServer(){
-  const res = await sbFetch('custom_songs?select=*&order=created_at.asc');
-  if(!res.ok) throw new Error('reload failed');
-  library = mergeLibrary(await res.json());
-  renderLibrary(); renderStats();
 }
 async function restoreDeleted(di, btn){
   var d=deletedSongs[di]; if(!d) return;
   if(btn){ btn.disabled=true; btn.textContent='Restoring…'; }
   try{
-    var res = d.marker
-      ? await sbFetch('custom_songs?id=eq.'+d.id, {method:'DELETE'})   // remove the "hidden" marker → built-in song comes back
-      : await sbFetch('custom_songs?id=eq.'+d.id, {method:'PATCH', body: JSON.stringify({hidden:false, deleted_at:null})});
-    if(!res.ok) throw new Error(await res.text());
+    await withPasscode(function(p){ return sbRpc('song_set_hidden', {p:p, song_id:d.id, hide:false}); });
     await reloadLibraryFromServer();
     setStatus('"'+d.title+'" is back in the library.','success');
   }catch(e){
     if(btn){ btn.disabled=false; btn.textContent='Restore'; }
-    setStatus('Could not restore "'+d.title+'" — check your connection.','error');
+    var m=saveErrorText(e,'restore "'+d.title+'"'); if(m) setStatus(m,'error');
   }
 }
 
-function mergeLibrary(rows){
-  collectDeleted(rows);
-  var master = MASTER_LIBRARY.filter(function(x){return x && x.title;}).map(function(x){ return Object.assign({}, x, {addedDate: x.addedDate||'2026-05-29'}); });
-  var byTitle = {};
-  master.forEach(function(m, idx){ byTitle[m.title] = idx; });
-  var extras = [];
-  rows.map(mapSbRow).forEach(function(c){
-    var target = c._masterTitle || c.title;
-    if(byTitle.hasOwnProperty(target) && master[byTitle[target]] && !master[byTitle[target]].custom){
-      c._masterTitle = target;
-      master[byTitle[target]] = c;
-    } else if(!c._hidden){
-      extras.push(c);
-    }
-  });
-  return master.filter(function(x){ return !x._hidden; }).concat(extras);
+// ── LOAD THE LIBRARY (all songs live in the database) ──
+var _libraryOnline=false;
+async function fetchSongs(){
+  const res = await sbFetch('songs?select=*&order=sort_order.asc,created_at.asc');
+  if(!res.ok) throw new Error('songs '+res.status);
+  return await res.json();
+}
+function applySongRows(rows){
+  library = rows.filter(function(r){ return !r.hidden; }).map(mapSongRow);
+  deletedSongs = rows.filter(function(r){ return r.hidden; }).map(function(r){
+    return {id:r.id, title:r.title, section:r.section||'', when:r.deleted_at||r.updated_at};
+  }).sort(function(a,b){ return String(b.when).localeCompare(String(a.when)); });
+  _libraryOnline = true;
+  renderDeleted();
+}
+async function reloadLibraryFromServer(){
+  applySongRows(await fetchSongs());
+  renderLibrary(); renderStats();
+}
+function useOfflineLibrary(){
+  // Last-resort copy built into the page, only used when the database can't be reached.
+  library = MASTER_LIBRARY.filter(function(x){return x && x.title;}).map(function(s){ return Object.assign({}, s, {addedDate:s.addedDate||'2026-05-29'}); });
+  _libraryOnline = false;
 }
 
 // ── INIT ─────────────────────────────────────────────────────────────────────
 async function init(){
   try{ loadDocColors(); }catch(e){}
   document.getElementById('svc-date').value = new Date().toISOString().split('T')[0];
-  // Always load master library first so it's never empty
-  library = MASTER_LIBRARY.map(s => ({...s, addedDate: s.addedDate||'2026-05-29'}));
+  setStatus('Loading songs…','info');
+  try {
+    applySongRows(await fetchSongs());
+    setStatus('','info');
+  } catch(e) {
+    useOfflineLibrary();
+    setStatus('Could not reach the song library — showing the offline copy. Changes can\'t be saved until you reload with a connection.','error');
+  }
   renderLibrary();
   renderStats();
-  setStatus('Loading custom songs…','info');
-  try {
-    const res = await sbFetch('custom_songs?select=*&order=created_at.asc');
-    if(res.ok){
-      library = mergeLibrary(await res.json());
-      renderLibrary();
-      renderStats();
-    } else {
-      setStatus('Could not load saved songs — edits may not show.','error');
-    }
-  } catch(e) {
-    // Custom songs unavailable — master library still loaded, no need to alarm user
-  } finally {
-    setStatus('','info');
-  }
+  loadHistory();
   await loadAppSettings();
   await loadSharedSetlist();
   startSetlistPolling();
@@ -981,18 +1070,75 @@ async function init(){
 }
 
 async function resetLibrary(btn){
-  if(btn && !btn.dataset.armed){
-    btn.dataset.armed='1'; btn.textContent='Tap again to reload';
-    setTimeout(function(){ if(btn){ delete btn.dataset.armed; btn.textContent='Reset library'; } }, 3500);
+  try {
+    await reloadLibraryFromServer();
+    setStatus(`Library reloaded — ${library.length} songs.`, 'success');
+  } catch(e){ setStatus('Could not reload — check your connection.','error'); }
+}
+
+// ── SETLIST HISTORY ──
+var setlistHistory=[], lastSungMap={};
+function todayISO(){ var d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+async function loadHistory(){
+  try{
+    const res = await sbFetch('setlist_history?select=*&order=service_date.desc,updated_at.desc&limit=200');
+    if(!res.ok) return;
+    setlistHistory = await res.json();
+    buildLastSung(); renderHistory(); renderLibrary();
+  }catch(e){}
+}
+function buildLastSung(){
+  lastSungMap={}; var today=todayISO();
+  setlistHistory.forEach(function(h){
+    if(!h.service_date || h.service_date>today) return;   // only services that already happened
+    (h.songs||[]).forEach(function(s){ var k=titleKey(s.title); if(!lastSungMap[k] || lastSungMap[k]<h.service_date) lastSungMap[k]=h.service_date; });
+  });
+}
+function shortDate(iso){ if(!iso) return ''; var p=iso.split('-'); return (+p[1])+'/'+(+p[2])+'/'+p[0].slice(2); }
+function lastSungBadge(title){
+  var d=lastSungMap[titleKey(title)]; if(!d) return '';
+  var days=Math.round((new Date(todayISO()+'T12:00:00')-new Date(d+'T12:00:00'))/86400000);
+  var recent = days<=14;
+  return '<span class="badge special" title="Last time this song was in a service" style="'+(recent?'background:#fdf1dc;color:#8a5300':'background:#f1f0ec;color:#6b6b6b')+'">Last sung '+shortDate(d)+'</span>';
+}
+function renderHistory(){
+  var el=document.getElementById('history-rows'); if(!el) return;
+  var c=document.getElementById('history-count'); if(c) c.textContent=setlistHistory.length?'('+setlistHistory.length+')':'';
+  if(!setlistHistory.length){ el.innerHTML='<div class="empty" style="padding:10px 0">No past setlists yet. Each time you tap Send to Google Docs or Copy setlist, the setlist is saved here.</div>'; return; }
+  el.innerHTML=setlistHistory.map(function(h,hi){
+    var n=(h.songs||[]).length;
+    var names=(h.songs||[]).map(function(s){return s.title;}).join(' · ');
+    return '<div class="song-row" style="align-items:flex-start"><div style="flex:1;min-width:0">'
+      +'<div class="song-title">'+escHtml(shortDate(h.service_date))+'</div>'
+      +'<div style="font-size:12px;color:var(--text2);font-family:system-ui,sans-serif;margin-top:2px">'+escHtml(h.service_title||'Service')+' · '+n+' song'+(n===1?'':'s')+'</div>'
+      +'<div style="font-size:11px;color:var(--text3);font-family:system-ui,sans-serif;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+escHtml(names)+'</div></div>'
+      +'<div style="display:flex;gap:6px;flex-shrink:0">'
+      +(h.doc_url?'<a href="'+escHtml(h.doc_url)+'" target="_blank" rel="noopener" style="font-size:12px;padding:4px 10px;border:0.5px solid var(--border2);border-radius:var(--radius);text-decoration:none;color:inherit;font-family:system-ui,sans-serif">Open doc</a>':'')
+      +'<button style="font-size:12px;padding:4px 10px" onclick="loadPastSetlist('+hi+',this)">Load</button></div></div>';
+  }).join('');
+}
+function loadPastSetlist(hi, btn){
+  var h=setlistHistory[hi]; if(!h) return;
+  if(setlist.length && btn && !btn.dataset.armed){
+    btn.dataset.armed='1'; btn.textContent='Replace current?';
+    setTimeout(function(){ if(btn){ delete btn.dataset.armed; btn.textContent='Load'; } }, 3500);
     return;
   }
-  if(btn){ delete btn.dataset.armed; btn.textContent='Reset library'; }
-  try {
-    const res = await sbFetch('custom_songs?select=*&order=created_at.asc');
-    library = mergeLibrary(res.ok ? await res.json() : []);
-  } catch(e){ library = mergeLibrary([]); }
-  renderLibrary(); renderStats();
-  setStatus(`Library reloaded — ${library.length} songs.`, 'success');
+  setlist=(h.songs||[]).map(function(s){ var lib=findLibrarySong(s.title); return Object.assign({}, lib||{}, {title:s.title, section:s.section||(lib&&lib.section)||'Special', key:s.key||''}); });
+  document.getElementById('svc-title').value=h.service_title||'';
+  renderSetlist();
+  setStatus('Loaded "'+(h.service_title||'Service')+' — '+shortDate(h.service_date)+'". Change the date before sending it out again.','success');
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+async function saveHistory(docUrl){
+  var date=document.getElementById('svc-date').value; if(!date || !setlist.length) return;
+  var row={service_date:date, service_title:document.getElementById('svc-title').value||'Worship Service',
+    songs:setlist.map(function(s){ return {title:s.title, section:s.section||'Special', key:s.key||''}; }), updated_at:new Date().toISOString()};
+  if(docUrl) row.doc_url=docUrl;
+  try{
+    const res=await sbFetch('setlist_history?on_conflict=service_date,service_title', {method:'POST', headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=representation'}, body:JSON.stringify(row)});
+    if(res.ok) await loadHistory();
+  }catch(e){}
 }
 
 // ── SHARED SETLIST (same on every device) ───────────────────────────────────
@@ -1528,12 +1674,13 @@ function renderEventSuggestions(){
   desc.innerHTML = `<strong>${event.label}</strong><br><br>${event.description}<br><br><em>💡 ${event.tip}</em>`;
   wrap.style.display = 'block';
 
-  // Search MASTER_LIBRARY directly for curated event songs (guaranteed source of truth)
+  // Curated event songs, looked up in the live library (accent-insensitive)
+  const evSrc = (library && library.length) ? library : MASTER_LIBRARY;
   const suggested = event.songs
     .map(title => {
-      const lower = title.toLowerCase();
-      return MASTER_LIBRARY.find(s => s.title.toLowerCase() === lower) ||
-             MASTER_LIBRARY.find(s => s.title.toLowerCase().includes(lower) || lower.includes(s.title.toLowerCase()));
+      const lower = titleKey(title);
+      return evSrc.find(s => titleKey(s.title) === lower) ||
+             evSrc.find(s => titleKey(s.title).includes(lower) || lower.includes(titleKey(s.title)));
     })
     .filter(Boolean)
     .filter((s, i, arr) => arr.findIndex(x => x.title === s.title) === i);
@@ -1555,7 +1702,7 @@ function renderEventSuggestions(){
     return `<div class="song-row">
       <div style="flex:1;min-width:0">
         <div class="song-title">${s.title}${!isCurated?' <span style="font-size:10px;color:var(--text3);font-family:system-ui,sans-serif">(keyword match)</span>':''}</div>
-        <div style="margin-top:3px">${getBadge(s.section)}</div>
+        <div style="margin-top:3px;display:flex;gap:4px;flex-wrap:wrap">${getBadge(s.section)}${lastSungBadge(s.title)}</div>
       </div>
       <button style="font-size:12px;padding:4px 10px" onclick="if(addToSetlist(eventSongCache[${si}])===true)flashAdded(this)">+ Add</button>
     </div>`;
@@ -1756,10 +1903,14 @@ function pickSetlistKey(i){
 
 var _lastAddTime=0, _lastAddTitle='';
 // returns true when added right away, 'ask' when the key picker opened first
-function addToSetlist(song, section){
+function addToSetlist(song, section, allowDuplicate){
   const now=Date.now();
-  if(song.title===_lastAddTitle && now-_lastAddTime<600) return false; // block double-tap on mobile
+  if(!allowDuplicate && song.title===_lastAddTitle && now-_lastAddTime<600) return false; // block double-tap on mobile
   _lastAddTime=now; _lastAddTitle=song.title;
+  if(!allowDuplicate && setlist.some(function(x){ return titleKey(x.title)===titleKey(song.title); })){
+    openDupConfirm(song.title, function(){ addToSetlist(song, section, true); });
+    return 'ask';
+  }
   var keys=parseKeys(song.key);
   if(keys.length>1){
     openKeyPicker(song.title, keys, '', function(k){
@@ -1774,6 +1925,61 @@ function addToSetlist(song, section){
   setStatus(`"${song.title}" added to setlist.`, 'success');
   return true;
 }
+
+var _dupCallback=null;
+function openDupConfirm(title, cb){
+  _dupCallback=cb;
+  document.getElementById('dup-song-title').textContent='"'+title+'" is already in this setlist.';
+  document.getElementById('dup-overlay').classList.add('open');
+}
+function closeDupConfirm(addAgain){
+  document.getElementById('dup-overlay').classList.remove('open');
+  var f=_dupCallback; _dupCallback=null;
+  if(addAgain && f) f(); else setStatus('Not added — it\'s already in the setlist.','info');
+}
+
+// ── QUICK KEY ENTRY: step through songs that have no key yet ──
+var _qkList=[], _qkPos=0;
+function openQuickKeys(){
+  if(!_libraryOnline){ setStatus('The song library is offline right now — keys can\'t be saved.','error'); return; }
+  _qkList=library.filter(function(s){ return s && s.title && !keyNotes(s.key).length; });
+  if(!_qkList.length){ setStatus('Every song has a key. 🎉','success'); return; }
+  var notes=['C','Db','D','Eb','E','F','F#','G','Ab','A','Bb','B'];
+  document.getElementById('qk-notes').innerHTML=notes.map(function(n){ return '<button style="font-size:12px;padding:4px 9px;min-width:36px" onclick="qkPickNote(\''+n+'\')">'+n+'</button>'; }).join('')
+    +'<button style="font-size:12px;padding:4px 9px" onclick="qkToggleMinor()" title="Switch between major and minor">major / minor</button>';
+  _qkPos=0; showQuickKey();
+  document.getElementById('qk-overlay').classList.add('open');
+}
+function showQuickKey(){
+  var s=_qkList[_qkPos];
+  if(!s){ closeQuickKeys(); setStatus('Done — that was the last song without a key.','success'); return; }
+  document.getElementById('qk-count').textContent='Song '+(_qkPos+1)+' of '+_qkList.length+' without a key';
+  document.getElementById('qk-title').textContent=s.title;
+  document.getElementById('qk-meta').innerHTML=getBadge(s.section)+(s.language?' <span class="badge special">'+escHtml(s.language)+'</span>':'');
+  document.getElementById('qk-lyrics').textContent=(s.lyrics||'').split('\n').filter(function(l){return l.trim();}).slice(0,6).join('\n');
+  var k=document.getElementById('qk-key'); k.value='';
+  document.getElementById('qk-msg').textContent='';
+  setTimeout(function(){ k.focus(); }, 60);
+}
+function qkPickNote(n){ var k=document.getElementById('qk-key'); var minor=/m$/.test(k.value); k.value=n+(minor?'m':''); k.focus(); }
+function qkToggleMinor(){ var k=document.getElementById('qk-key'); var v=k.value.trim(); if(!v) return; k.value=/m$/.test(v)?v.slice(0,-1):v+'m'; }
+async function qkSave(){
+  var s=_qkList[_qkPos]; if(!s) return;
+  var k=document.getElementById('qk-key').value.trim();
+  if(!k){ qkSkip(); return; }
+  var who=document.getElementById('qk-player').value;
+  var full=k+(who?' ('+who+')':'');
+  var btn=document.getElementById('qk-save'); btn.disabled=true; btn.textContent='Saving…';
+  try{
+    var row=await withPasscode(function(p){ return sbRpc('song_save', {p:p, s:{id:s._sbId, title:s.title, key:full}}); });
+    s.key=(row&&row.key)||full;
+    _qkPos++; renderLibrary(); renderStats(); showQuickKey();
+  }catch(e){
+    var m=saveErrorText(e,'save the key'); document.getElementById('qk-msg').textContent=m||'';
+  }finally{ btn.disabled=false; btn.textContent='Save & next'; }
+}
+function qkSkip(){ _qkPos++; showQuickKey(); }
+function closeQuickKeys(){ document.getElementById('qk-overlay').classList.remove('open'); }
 
 // ── LIBRARY ──────────────────────────────────────────────────────────────────
 var _libFilter = '';
@@ -1864,7 +2070,7 @@ function renderLibrary(){
     rows += '<div class="song-row">'
       + '<div style="flex:1;min-width:0">'
       + '<div class="song-title">'+s.title+'</div>'
-      + '<div style="margin-top:3px;display:flex;gap:4px;flex-wrap:wrap">'+getBadge(s.section)+artistBadge+keyBadge+'</div>'
+      + '<div style="margin-top:3px;display:flex;gap:4px;flex-wrap:wrap">'+getBadge(s.section)+artistBadge+keyBadge+lastSungBadge(s.title)+'</div>'
       + '</div>'
       + '<button class="icon-btn" onclick="viewSong('+i+')" title="View lyrics"><svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>'
       + '<button class="icon-btn" onclick="if(addToSetlist(library['+i+'])===true)flashAdded(this)" title="Add to setlist"><svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>'
@@ -1901,32 +2107,18 @@ function confirmDeleteSong(i, btn){
 }
 
 async function deleteSong(i){
-  const song=library[i];
+  const song=library[i]; if(!song) return;
   const t=song.title;
-  // Remove from Supabase if it's a custom song
   try {
-    var res;
-    var now=new Date().toISOString(), newRow=null;
-    if(song.custom && song._sbId){
-      // Added or edited song: keep it, just hide it (shows in Recently deleted)
-      res = await sbFetch('custom_songs?id=eq.'+song._sbId, {method:'PATCH', body: JSON.stringify({hidden:true, deleted_at:now})});
-      if(res.ok) newRow={id:song._sbId, hidden:true, title:song.title, master_title:song._masterTitle||null, section:song.section, lyrics:song.lyrics, deleted_at:now};
-    } else {
-      // Untouched built-in song: save a hidden marker
-      res = await sbFetch('custom_songs', {method:'POST', body: JSON.stringify({title:song.title, section:song.section, master_title:song.title, hidden:true, lyrics:'', deleted_at:now})});
-      if(res.ok){ var rr=await res.clone().json(); newRow=rr[0]; }
-    }
-    if(!res.ok) throw new Error(await res.text());
-    if(newRow){
-      var m = !!newRow.master_title && !String(newRow.lyrics||'').trim();
-      deletedSongs.unshift({id:newRow.id, title:newRow.master_title||newRow.title, section:newRow.section||song.section, when:now, marker:m, builtin:!!newRow.master_title});
-      renderDeleted();
-    }
+    const row = await withPasscode(function(p){ return sbRpc('song_set_hidden', {p:p, song_id:song._sbId, hide:true}); });
+    deletedSongs.unshift({id:song._sbId, title:t, section:song.section, when:(row&&row.deleted_at)||new Date().toISOString()});
+    renderDeleted();
   } catch(e){
-    setStatus('Could not delete "'+t+'" — check connection and try again.','error');
+    renderLibrary();
+    var m=saveErrorText(e,'delete "'+t+'"'); if(m) setStatus(m,'error');
     return;
   }
-  library.splice(i,1);
+  var li=library.indexOf(song); if(li>=0) library.splice(li,1);
   renderLibrary(); renderStats();
   setStatus(`"${t}" removed — you can bring it back from Recently deleted.`, 'info');
 }
@@ -1944,8 +2136,10 @@ function addToSetlistFromView(){addToSetlist(library[viewIdx]);closeView();}
 
 // ── EDIT MODAL ───────────────────────────────────────────────────────────────
 function editSongLyrics(i){ openEdit(i); }
-function openEdit(i){
-  closeView(); editIdx=i; const s=library[i];
+async function openEdit(i){
+  closeView();
+  try{ await withPasscode(function(p){ return p; }); }catch(e){ return; }
+  editIdx=i; const s=library[i];
   document.getElementById('edit-title').value=s.title;
   document.getElementById('edit-section').value=s.section;
   document.getElementById('edit-artist').value=s.artist||'';
@@ -1956,7 +2150,7 @@ function openEdit(i){
 }
 function closeEdit(){document.getElementById('edit-overlay').classList.remove('open');}
 async function saveEdit(){
-  const s=library[editIdx];
+  const s=library[editIdx]; if(!s) return;
   const upd = {
     title: document.getElementById('edit-title').value.trim()||s.title,
     section: document.getElementById('edit-section').value,
@@ -1967,21 +2161,10 @@ async function saveEdit(){
   };
   setStatus('Saving…','info');
   try {
-    let res;
-    if(s.custom && s._sbId){
-      res = await sbFetch('custom_songs?id=eq.'+s._sbId, {method:'PATCH', body: JSON.stringify(upd)});
-    } else {
-      // Built-in song: save the edited copy, linked to the original title so it replaces it on reload
-      res = await sbFetch('custom_songs', {method:'POST', body: JSON.stringify(Object.assign({}, upd, {master_title: s.title, added_date: new Date().toISOString().split('T')[0]}))});
-    }
-    if(!res.ok) throw new Error(await res.text());
-    const rows = await res.json();
-    if(!(s.custom && s._sbId)){
-      s._masterTitle = s.title; s.custom = true; s._sbId = rows[0] && rows[0].id;
-    }
-    Object.assign(s, upd);
+    const row = await withPasscode(function(p){ return sbRpc('song_save', {p:p, s:Object.assign({id:s._sbId}, upd)}); });
+    Object.assign(s, row ? mapSongRow(row) : upd);
   } catch(e){
-    setStatus('Could not save changes — check connection and try again.','error');
+    var m=saveErrorText(e,'save changes'); setStatus(m||'','error');
     return;
   }
   renderLibrary(); renderStats(); closeEdit();
@@ -2036,10 +2219,10 @@ async function importFile(fi, mode){
     const data=await callGoogle('read',{id:f.id});
     const lyrics=(data.text||'').trim();
     const today=new Date().toISOString().split('T')[0];
-    const sbRes = await sbFetch('custom_songs', {method:'POST', body: JSON.stringify({title:f.name, section:section, artist:'', language:'Bilingual (EN/ES)', key:'', lyrics:lyrics, added_date:today})});
-    if(!sbRes.ok) throw {message:'Could not save the song — check your connection.'};
-    const saved=(await sbRes.json())[0]||{};
-    const song={title:f.name, section:section, artist:'', language:'Bilingual (EN/ES)', key:'', addedDate:today, lyrics:lyrics, custom:true, _sbId:saved.id};
+    let saved;
+    try{ saved = await withPasscode(function(p){ return sbRpc('song_save', {p:p, s:{title:f.name, section:section, artist:'', language:'Bilingual (EN/ES)', key:'', lyrics:lyrics}}); }); }
+    catch(err){ if(err && err.code==='cancelled'){ targetEl.innerHTML='Not saved — passcode needed.'; return; } throw {message:'Could not save the song — check your connection.'}; }
+    const song=mapSongRow(saved);
     library.push(song); renderLibrary(); renderStats();
     if(mode==='setlist'){ addToSetlist(song,section); closeDriveModal(); switchMain('setlist'); }
     else { targetEl.innerHTML='<span style="color:#27500a">✓ "'+escHtml(f.name)+'" saved to library.</span>'; }
@@ -2086,23 +2269,18 @@ async function saveNewSong(){
   const lyrics=document.getElementById('new-lyrics').value.trim();
   if(!title){setStatus('Enter a song title.','error');return;}
   if(!lyrics){setStatus('Add some lyrics.','error');return;}
+  if(findLibrarySong(title)){ setStatus('"'+title+'" is already in the library — search for it and use ✏️ Edit instead.','error'); return; }
   const section=document.getElementById('new-section').value;
   const artist=document.getElementById('new-artist').value.trim();
   const language=document.getElementById('new-lang').value;
   const key=document.getElementById('new-key').value.trim();
   setStatus('Saving…','info');
   try {
-    const res = await sbFetch('custom_songs', {
-      method:'POST',
-      body: JSON.stringify({title, section, artist, language, key, lyrics, added_date: new Date().toISOString().split('T')[0]})
-    });
-    if(!res.ok) throw new Error();
-    const [saved] = await res.json();
-    const song={title, section, artist, language, key, lyrics, addedDate:saved.added_date, custom:true, _sbId:saved.id};
-    library.push(song);
+    const saved = await withPasscode(function(p){ return sbRpc('song_save', {p:p, s:{title, section, artist, language, key, lyrics}}); });
+    library.push(mapSongRow(saved));
     document.getElementById('new-title').value=''; document.getElementById('new-lyrics').value=''; document.getElementById('new-artist').value=''; document.getElementById('new-key').value='';
     renderLibrary(); renderStats(); setStatus(`"${title}" saved to library.`,'success');
-  } catch(e){ setStatus('Could not save — check connection.','error'); }
+  } catch(e){ var m=saveErrorText(e,'save'); setStatus(m||'','error'); }
 }
 
 // ── FILE DOWNLOADS ──
@@ -2122,44 +2300,6 @@ async function offerDownload(filename, text, mime){
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
   return 'saved';
-}
-
-// ── EXPORT CUSTOM SONGS ──────────────────────────────────────────────────────
-function exportCustomSongs(){
-  const customs = library.filter(s => s.custom);
-  const statusEl = document.getElementById('custom-export-status');
-  if(!customs.length){
-    statusEl.textContent = 'No custom songs found — nothing to export.';
-    return;
-  }
-  let out = `CUSTOM SONGS EXPORT — ${new Date().toLocaleDateString()}\n`;
-  out += `${customs.length} song(s) — send this file to get the songs added to the master library.\n`;
-  out += '='.repeat(60) + '\n\n';
-  customs.forEach((s, i) => {
-    out += `[${i+1}] ${s.title}\n`;
-    out += `Section: ${s.section}\n`;
-    if(s.artist) out += `Artist: ${s.artist}\n`;
-    out += `Language: ${s.language}\n`;
-    if(s.key) out += `Key: ${s.key}\n`;
-    out += `Lyrics:\n${s.lyrics}\n`;
-    out += '-'.repeat(60) + '\n\n';
-  });
-  offerDownload(`custom-songs-${new Date().toISOString().split('T')[0]}.txt`, out, 'text/plain').then(function(r){
-    statusEl.textContent = r==='saved' ? `✓ Exported ${customs.length} song(s).` : 'Download cancelled.';
-  });
-}
-
-function mergeCustomIntoMaster(){
-  const customs = library.filter(s => s.custom);
-  const statusEl = document.getElementById('custom-export-status');
-  if(!customs.length){
-    statusEl.textContent = 'No custom songs to merge.';
-    return;
-  }
-  // Mark them as no longer "custom" so they behave like master songs this session
-  library = library.map(s => s.custom ? {...s, custom:false, _merged:true} : s);
-  renderLibrary(); renderStats();
-  statusEl.innerHTML = `✓ ${customs.length} custom song(s) merged into master for this session.<br><span style="color:#b35c00">This only lasts until you reload — export and send the file to make it permanent.</span>`;
 }
 
 // ── PREVIEW ──────────────────────────────────────────────────────────────────
@@ -2261,6 +2401,7 @@ async function sendSetlistToDocs(){
     const colors=getDocColors();
     const data=await callGoogle('createSetlistDoc',{title:docTitle, heading:svcTitle, dateStr:dateStr, sections:sections, sectionColor:colors.section, songColor:colors.song, cueColor:colors.cue});
     setStatusLink('Google Doc created.', data.url, 'Open the doc');
+    saveHistory(data.url);
   }catch(e){ setStatus(googleErrorText(e),'error'); }
 }
 
@@ -2316,7 +2457,7 @@ function copySetlist(){
   if(!setlist.length){setStatus('Add songs to your setlist first.','error');return;}
   document.getElementById('preview-overlay').classList.remove('open');
   const out=buildSetlistCopy();
-  const done=()=>setStatus('✓ Copied! Paste it into a Google Doc.','success');
+  const done=()=>{ setStatus('✓ Copied! Paste it into a Google Doc.','success'); saveHistory(null); };
   const plainFallback=()=>{
     const ta=document.createElement('textarea'); ta.value=out.text; ta.style.position='fixed'; ta.style.opacity='0';
     document.body.appendChild(ta); ta.focus(); ta.select();
@@ -2355,6 +2496,6 @@ function exportJSON(){
 
 init();
 </script>
-<div id="app-version" style="position:fixed;right:10px;bottom:6px;font-size:10px;color:#9a9a9a;font-family:system-ui,sans-serif;opacity:.8;pointer-events:none;z-index:40">v42 · Sep 23, 2026</div>
+<div id="app-version" style="position:fixed;right:10px;bottom:6px;font-size:10px;color:#9a9a9a;font-family:system-ui,sans-serif;opacity:.8;pointer-events:none;z-index:40">v44 · Sep 23, 2026</div>
 </body>
 </html>
