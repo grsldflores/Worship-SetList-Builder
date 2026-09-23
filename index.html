@@ -1289,6 +1289,7 @@ function renderEventSuggestions(){
 
   // Always use MASTER_LIBRARY as the base source (curated event songs are keyed to it)
   // Also include any custom songs added by the user (from Supabase)
+  console.log('[Events] key=',key,'MASTER_LIBRARY.length=',MASTER_LIBRARY.length,'library.length=',library&&library.length);
   const masterTitles = new Set(MASTER_LIBRARY.map(s => s.title.toLowerCase()));
   const customSongs = (library && library.length)
     ? library.filter(s => !masterTitles.has(s.title.toLowerCase()))
@@ -1313,7 +1314,7 @@ function renderEventSuggestions(){
 
   const all = [...suggested, ...keywordMatches];
   const el = document.getElementById('event-song-list');
-  if(!all.length){ el.innerHTML='<div class="empty">No matching songs found — try adding more songs to your library.</div>'; return; }
+  if(!all.length){ el.innerHTML=`<div class="empty">No matches found. (src: ${src.length} songs, event songs: ${event.songs.length}, suggested: ${suggested.length})</div>`; return; }
 
   el.innerHTML = all.map((s,si) => {
     const isCurated = !!suggested.find(x => x.title === s.title);
