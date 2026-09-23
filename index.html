@@ -149,6 +149,11 @@
       <button onclick="exportJSON()">Download JSON</button>
       <button onclick="resetLibrary(this)" style="color:#791f1f">Reset library</button>
     </div>
+    <details class="card" id="deleted-card" style="margin-top:12px;padding:12px 1.25rem">
+      <summary style="cursor:pointer;font-size:13px;font-family:system-ui,sans-serif;color:var(--text2);font-weight:500">🗑 Recently deleted <span id="deleted-count"></span></summary>
+      <div style="font-size:12px;color:var(--text3);font-family:system-ui,sans-serif;margin:8px 0 4px">Deleted songs stay here so you can bring them back. Tap Restore to put a song back in the library.</div>
+      <div id="deleted-rows"></div>
+    </details>
   </div>
 
   <!-- MEDLEYS -->
@@ -859,7 +864,54 @@ function mapSbRow(r){
 }
 // Merge saved rows over the built-in list: a row that edits a built-in song replaces it,
 // a hidden row removes it, and everything else is added at the end.
+var deletedSongs=[];
+function collectDeleted(rows){
+  deletedSongs=(rows||[]).filter(function(r){
+    if(!r || !r.hidden) return false;
+    if(!r.master_title && String(r.title||'').indexOf('[restored] ')===0) return false; // already brought back
+    return true;
+  }).map(function(r){
+    var marker = !!r.master_title && !String(r.lyrics||'').trim(); // built-in song that was only hidden
+    return {id:r.id, title:r.master_title||r.title, section:r.section||'', when:r.deleted_at||r.created_at, marker:marker};
+  }).sort(function(a,b){ return String(b.when).localeCompare(String(a.when)); });
+  renderDeleted();
+}
+function renderDeleted(){
+  var el=document.getElementById('deleted-rows'); if(!el) return;
+  var c=document.getElementById('deleted-count'); if(c) c.textContent=deletedSongs.length?'('+deletedSongs.length+')':'';
+  if(!deletedSongs.length){ el.innerHTML='<div class="empty" style="padding:10px 0">Nothing deleted.</div>'; return; }
+  el.innerHTML=deletedSongs.map(function(d,di){
+    var when=d.when?new Date(d.when).toLocaleString('en-US',{month:'numeric',day:'numeric',year:'2-digit',hour:'numeric',minute:'2-digit'}):'';
+    return '<div class="song-row"><div style="flex:1;min-width:0"><div class="song-title">'+escHtml(d.title)+'</div>'
+      +'<div style="margin-top:3px;display:flex;gap:6px;align-items:center;flex-wrap:wrap">'+(d.section?getBadge(d.section):'')
+      +'<span style="font-size:11px;color:var(--text3);font-family:system-ui,sans-serif">Deleted '+escHtml(when)+'</span></div></div>'
+      +'<button style="font-size:12px;padding:4px 12px" onclick="restoreDeleted('+di+',this)">Restore</button></div>';
+  }).join('');
+}
+async function reloadLibraryFromServer(){
+  const res = await sbFetch('custom_songs?select=*&order=created_at.asc');
+  if(!res.ok) throw new Error('reload failed');
+  library = mergeLibrary(await res.json());
+  renderLibrary(); renderStats();
+}
+async function restoreDeleted(di, btn){
+  var d=deletedSongs[di]; if(!d) return;
+  if(btn){ btn.disabled=true; btn.textContent='Restoring…'; }
+  try{
+    var res = d.marker
+      ? await sbFetch('custom_songs?id=eq.'+d.id, {method:'DELETE'})   // remove the "hidden" marker → built-in song comes back
+      : await sbFetch('custom_songs?id=eq.'+d.id, {method:'PATCH', body: JSON.stringify({hidden:false, deleted_at:null})});
+    if(!res.ok) throw new Error(await res.text());
+    await reloadLibraryFromServer();
+    setStatus('"'+d.title+'" is back in the library.','success');
+  }catch(e){
+    if(btn){ btn.disabled=false; btn.textContent='Restore'; }
+    setStatus('Could not restore "'+d.title+'" — check your connection.','error');
+  }
+}
+
 function mergeLibrary(rows){
+  collectDeleted(rows);
   var master = MASTER_LIBRARY.filter(function(x){return x && x.title;}).map(function(x){ return Object.assign({}, x, {addedDate: x.addedDate||'2026-05-29'}); });
   var byTitle = {};
   master.forEach(function(m, idx){ byTitle[m.title] = idx; });
@@ -1831,23 +1883,29 @@ async function deleteSong(i){
   // Remove from Supabase if it's a custom song
   try {
     var res;
-    if(song.custom && song._sbId && song._masterTitle){
-      // Edited built-in song: keep the row but mark it hidden so the original doesn't come back
-      res = await sbFetch('custom_songs?id=eq.'+song._sbId, {method:'PATCH', body: JSON.stringify({hidden:true})});
-    } else if(song.custom && song._sbId){
-      res = await sbFetch('custom_songs?id=eq.'+song._sbId, {method:'DELETE'});
+    var now=new Date().toISOString(), newRow=null;
+    if(song.custom && song._sbId){
+      // Added or edited song: keep it, just hide it (shows in Recently deleted)
+      res = await sbFetch('custom_songs?id=eq.'+song._sbId, {method:'PATCH', body: JSON.stringify({hidden:true, deleted_at:now})});
+      if(res.ok) newRow={id:song._sbId, hidden:true, title:song.title, master_title:song._masterTitle||null, section:song.section, lyrics:song.lyrics, deleted_at:now};
     } else {
       // Untouched built-in song: save a hidden marker
-      res = await sbFetch('custom_songs', {method:'POST', body: JSON.stringify({title:song.title, section:song.section, master_title:song.title, hidden:true, lyrics:''})});
+      res = await sbFetch('custom_songs', {method:'POST', body: JSON.stringify({title:song.title, section:song.section, master_title:song.title, hidden:true, lyrics:'', deleted_at:now})});
+      if(res.ok){ var rr=await res.clone().json(); newRow=rr[0]; }
     }
     if(!res.ok) throw new Error(await res.text());
+    if(newRow){
+      var m = !!newRow.master_title && !String(newRow.lyrics||'').trim();
+      deletedSongs.unshift({id:newRow.id, title:newRow.master_title||newRow.title, section:newRow.section||song.section, when:now, marker:m});
+      renderDeleted();
+    }
   } catch(e){
     setStatus('Could not delete "'+t+'" — check connection and try again.','error');
     return;
   }
   library.splice(i,1);
   renderLibrary(); renderStats();
-  setStatus(`"${t}" removed.`, 'info');
+  setStatus(`"${t}" removed — you can bring it back from Recently deleted.`, 'info');
 }
 
 // ── VIEW MODAL ───────────────────────────────────────────────────────────────
