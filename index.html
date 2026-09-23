@@ -1287,22 +1287,23 @@ function renderEventSuggestions(){
   desc.innerHTML = `<strong>${event.label}</strong><br><br>${event.description}<br><br><em>💡 ${event.tip}</em>`;
   wrap.style.display = 'block';
 
-  // Always search both library (custom songs) and MASTER_LIBRARY combined
-  const masterTitles = new Set(MASTER_LIBRARY.map(s => s.title));
-  const customOnly = (library && library.length) ? library.filter(s => !masterTitles.has(s.title)) : [];
-  const src = [...MASTER_LIBRARY.map(m => {
-    // If library has an updated version of this song, use it
-    const custom = library && library.find(l => l.title === m.title);
-    return custom || m;
-  }), ...customOnly];
+  // Always use MASTER_LIBRARY as the base source (curated event songs are keyed to it)
+  // Also include any custom songs added by the user (from Supabase)
+  const masterTitles = new Set(MASTER_LIBRARY.map(s => s.title.toLowerCase()));
+  const customSongs = (library && library.length)
+    ? library.filter(s => !masterTitles.has(s.title.toLowerCase()))
+    : [];
+  const src = [...MASTER_LIBRARY, ...customSongs];
 
   const suggested = event.songs
     .map(title => {
       const lower = title.toLowerCase();
+      // Try exact match first, then partial match as fallback
       return src.find(s => s.title.toLowerCase() === lower) ||
              src.find(s => s.title.toLowerCase().includes(lower) || lower.includes(s.title.toLowerCase()));
     })
-    .filter(Boolean);
+    .filter(Boolean)
+    .filter((s, i, arr) => arr.findIndex(x => x.title === s.title) === i); // dedupe
 
   const keywordMatches = src.filter(s => {
     const text = (s.title + ' ' + (s.lyrics||'')).toLowerCase();
