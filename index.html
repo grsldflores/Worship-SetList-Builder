@@ -1500,39 +1500,42 @@ function setLibFilter(val){
 }
 
 function renderLibrary(){
-  try {
-  const src = (library && library.length) ? library : MASTER_LIBRARY;
-  const searchEl = document.getElementById('lib-search');
-  const q=(searchEl ? searchEl.value||'' : '').toLowerCase().trim();
-  const sec = _libFilter||'';
-  const filtered=src.filter(s=>{
-    const matchQ = !q || s.title.toLowerCase().includes(q) || (s.artist||'').toLowerCase().includes(q);
-    let matchSec = true;
-    if(sec==='bilingual') matchSec = s.language && s.language.includes('Bilingual');
+  var src = (library && library.length) ? library : MASTER_LIBRARY;
+  var searchEl = document.getElementById('lib-search');
+  var q = (searchEl ? searchEl.value||'' : '').toLowerCase().trim();
+  var sec = _libFilter||'';
+  var filtered = src.filter(function(s){
+    var matchQ = !q || s.title.toLowerCase().indexOf(q)>=0 || (s.artist||'').toLowerCase().indexOf(q)>=0;
+    var matchSec = true;
+    if(sec==='bilingual') matchSec = !!(s.language && s.language.indexOf('Bilingual')>=0);
     else if(sec==='praise') matchSec = s.section==='Praise/Avivamiento' || s.section==='Offering/Ofrenda';
     else if(sec==='worship') matchSec = s.section==='Worship/Adoración' || s.section==='Altar Call';
     else if(sec) matchSec = s.section===sec;
     return matchQ && matchSec;
   });
-  // dedupe by title (in case Supabase has duplicates)
-  const seen=new Set();
-  const deduped=filtered.filter(s=>{ if(seen.has(s.title)) return false; seen.add(s.title); return true; });
-  const el=document.getElementById('lib-rows');
+  var seen = {};
+  var deduped = filtered.filter(function(s){ if(seen[s.title]) return false; seen[s.title]=1; return true; });
+  var el = document.getElementById('lib-rows');
   if(!el) return;
-  if(!deduped.length){el.innerHTML='<div class="empty">'+(src.length===0?'Library empty ('+src.length+' src, '+library.length+' lib).':'No matches ('+filtered.length+' filtered, sec='+sec+', q='+q+')')+'</div>';return;}
-  el.innerHTML=deduped.map(s=>{
-    const i=library.findIndex(x=>x.title===s.title);
-    return `<div class="song-row">
-      <div style="flex:1;min-width:0">
-        <div class="song-title">${s.title}</div>
-        <div style="margin-top:3px;display:flex;gap:4px;flex-wrap:wrap">${getBadge(s.section)}${s.artist?`<span class="badge special">${s.artist}</span>`:''}${s.key?`<span class="badge special" style="background:#f0f5ff;color:#2d4fa0;font-weight:500">♪ ${s.key}</span>`:''}</div>
-      </div>
-      <button class="icon-btn" onclick="viewSong(${i})" title="View lyrics"><svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
-      <button class="icon-btn" onclick="addToSetlist(library[${i}]); switchMain('setlist')" title="Add to setlist"><svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
-      <button class="icon-btn danger" id="del-btn-${i}" onclick="confirmDeleteSong(${i}, this)" title="Delete"><svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg></button>
-    </div>`;
-  }).join('');
-  } catch(e){ console.error('renderLibrary error:',e); }
+  if(!deduped.length){ el.innerHTML='<div class="empty">No matches.</div>'; return; }
+  var rows = '';
+  for(var di=0; di<deduped.length; di++){
+    var s = deduped[di];
+    var i = -1;
+    for(var li=0; li<library.length; li++){ if(library[li].title===s.title){ i=li; break; } }
+    var keyBadge = s.key ? '<span class="badge special" style="background:#f0f5ff;color:#2d4fa0;font-weight:500">&#9834; '+s.key+'</span>' : '';
+    var artistBadge = s.artist ? '<span class="badge special">'+s.artist+'</span>' : '';
+    rows += '<div class="song-row">'
+      + '<div style="flex:1;min-width:0">'
+      + '<div class="song-title">'+s.title+'</div>'
+      + '<div style="margin-top:3px;display:flex;gap:4px;flex-wrap:wrap">'+getBadge(s.section)+artistBadge+keyBadge+'</div>'
+      + '</div>'
+      + '<button class="icon-btn" onclick="viewSong('+i+')" title="View lyrics"><svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>'
+      + '<button class="icon-btn" onclick="addToSetlist(library['+i+']);switchMain(\'setlist\')" title="Add to setlist"><svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>'
+      + '<button class="icon-btn danger" id="del-btn-'+i+'" onclick="confirmDeleteSong('+i+',this)" title="Delete"><svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg></button>'
+      + '</div>';
+  }
+  el.innerHTML = rows;
 }
 
 var _deletePending = {};
