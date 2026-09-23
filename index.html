@@ -2167,7 +2167,7 @@ function previewSetlist(){
   if(!setlist.length){setStatus('Add songs first.','error');return;}
   const date=document.getElementById('svc-date').value;
   const title=document.getElementById('svc-title').value||'Worship Service';
-  const dateStr=date?new Date(date+'T12:00:00').toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'}):'';
+  const dateStr=serviceDateLabel(title, date);
   let html=`<p style="font-weight:500;font-size:15px;margin-bottom:2px;font-family:system-ui,sans-serif">${title}</p>`;
   if(dateStr) html+=`<p style="font-size:12px;color:var(--text2);margin-bottom:14px;font-family:system-ui,sans-serif">${dateStr}</p>`;
   setlist.forEach(s=>{html+=`<div style="margin-bottom:12px">${getBadge(s.section)} <strong style="font-size:13px;font-family:system-ui,sans-serif">${s.title}</strong><div class="lyrics-prev">${(s.lyrics||'').substring(0,200)}${(s.lyrics||'').length>200?'…':''}</div></div>`;});
@@ -2195,6 +2195,17 @@ function getDocColors(){
   return {section:document.getElementById('doc-color-section').value||DOC_COLOR_DEFAULTS.section, song:document.getElementById('doc-color-song').value||DOC_COLOR_DEFAULTS.song, cue:document.getElementById('doc-color-cue').value||DOC_COLOR_DEFAULTS.cue};
 }
 
+// "Sunday Service" + a Sunday date → "September 20, 2026" (no repeated day)
+// "Youth Night"    + a Friday date → "Friday, September 18, 2026"
+var DAY_WORDS={0:['sunday','domingo'],1:['monday','lunes'],2:['tuesday','martes'],3:['wednesday','miercoles'],4:['thursday','jueves'],5:['friday','viernes'],6:['saturday','sabado']};
+function serviceDateLabel(title, date){
+  if(!date) return '';
+  var d=new Date(date+'T12:00:00');
+  var t=titleKey(title);
+  var sameDay=DAY_WORDS[d.getDay()].some(function(w){ return new RegExp('\\b'+w+'\\b').test(t); });
+  return d.toLocaleDateString('en-US', sameDay ? {year:'numeric',month:'long',day:'numeric'} : {weekday:'long',year:'numeric',month:'long',day:'numeric'});
+}
+
 // ── SEND TO GOOGLE DOCS ──
 // Piano player names never leave the builder: strip them from keys and lyrics.
 var TEAM_NAMES=/\b(Ryan|Karen|Candy)\b/gi;
@@ -2214,7 +2225,7 @@ async function sendSetlistToDocs(){
   document.getElementById('preview-overlay').classList.remove('open');
   const date=document.getElementById('svc-date').value;
   const svcTitle=document.getElementById('svc-title').value||'Worship Service';
-  const dateStr=date?new Date(date+'T12:00:00').toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'}):'';
+  const dateStr=serviceDateLabel(svcTitle, date);
   const order=['Praise/Avivamiento','Worship/Adoración','Offering/Ofrenda','Altar Call','Special','Extra'];
   const names=order.concat(setlist.map(function(s){return s.section||'Special';}).filter(function(x,i,a){return order.indexOf(x)<0 && a.indexOf(x)===i;}));
   const sections=names.map(function(n){
@@ -2235,78 +2246,76 @@ async function sendSetlistToDocs(){
 }
 
 // ── CREATE GOOGLE DOC ────────────────────────────────────────────────────────
+function lyricLineHTML(line, cueColor){
+  var t=line.trim();
+  if(!t) return '<p style="margin:0">&nbsp;</p>';
+  var LABEL=/^(VERSE|VERSO|CHORUS|CORO|PRE-?CHORUS|PRE-?CORO|PRECORO|BRIDGE|PUENTE|TAG|INTRO|OUTRO|INTERLUDE|INTERLUDIO|INSTRUMENTAL|ENDING|FINAL|FINALE|REFRAIN|ESTRIBILLO|MED)( ?\d+| [IVX]+)?( FINAL)?(\s*\/\s*(VERSE|VERSO|CHORUS|CORO|BRIDGE|PUENTE|TAG|PRECORO|PRE-?CHORUS)( ?\d+)?)*$/;
+  var allCaps=/[A-ZÁÉÍÓÚÑÜ]{2}/.test(t) && !/[a-záéíóúñü]/.test(t);
+  var cue=function(x){ return '<span style="color:'+cueColor+';font-weight:bold">'+escHtml(x)+'</span>'; };
+  if(allCaps){
+    var m=t.match(/^(.*?)\s*(\||—|–| - )\s*(.+)$/);
+    if(m && LABEL.test(m[1].trim())) return '<p style="margin:0"><b>'+escHtml(t.slice(0, t.length-m[3].length))+'</b>'+cue(m[3])+'</p>';
+    if(!LABEL.test(t)) return '<p style="margin:0">'+cue(t)+'</p>';
+    return '<p style="margin:0"><b>'+escHtml(t)+'</b></p>';
+  }
+  var c=line.match(/^\s*[A-ZÁÉÍÓÚÑÜ][A-ZÁÉÍÓÚÑÜ |]*:/);
+  if(c) return '<p style="margin:0">'+cue(c[0])+escHtml(line.slice(c[0].length))+'</p>';
+  return '<p style="margin:0">'+escHtml(line)+'</p>';
+}
+function buildSetlistCopy(){
+  const date=document.getElementById('svc-date').value;
+  const svcTitle=document.getElementById('svc-title').value||'Worship Service';
+  const dateStr=serviceDateLabel(svcTitle, date);
+  const colors=getDocColors();
+  const order=['Praise/Avivamiento','Worship/Adoración','Offering/Ofrenda','Altar Call','Special','Extra'];
+  const names=order.concat(setlist.map(s=>s.section||'Special').filter((x,i,a)=>order.indexOf(x)<0 && a.indexOf(x)===i));
+  const secs=names.map(n=>({name:n, songs:setlist.filter(s=>(s.section||'Special')===n)})).filter(x=>x.songs.length);
+  const F='font-family:Arial,sans-serif;';
+  let text=svcTitle+'\n'+(dateStr?dateStr+'\n':'')+'\n';
+  let html='<div style="'+F+'"><p style="font-size:16pt;margin:0">'+escHtml(svcTitle)+'</p>'+(dateStr?'<p style="font-size:16pt;margin:0 0 12pt">'+escHtml(dateStr)+'</p>':'');
+  // summary
+  secs.forEach(sec=>{
+    text+=sec.name+'\n';
+    html+='<h2 style="color:'+colors.section+';font-size:16pt;margin:12pt 0 4pt">'+escHtml(sec.name)+'</h2><ul style="margin:0">';
+    sec.songs.forEach(s=>{ const k=cleanKey(s.key); text+='  • '+s.title+(k?' ('+k+')':'')+'\n'; html+='<li>'+escHtml(s.title+(k?' ('+k+')':''))+'</li>'; });
+    html+='</ul>'; text+='\n';
+  });
+  // lyrics, each section on a new page when pasted into Google Docs
+  secs.forEach(sec=>{
+    text+='\n'+sec.name.toUpperCase()+'\n\n';
+    html+='<h1 style="page-break-before:always;color:'+colors.section+';font-size:20pt;margin:0 0 8pt">'+escHtml(sec.name.toUpperCase())+'</h1>';
+    sec.songs.forEach(s=>{
+      const ly=scrubNames(currentLyrics(s));
+      text+=s.title+'\n\n'+ly+'\n\n';
+      html+='<h2 style="color:'+colors.song+';font-size:20pt;margin:14pt 0 4pt">'+escHtml(s.title)+'</h2>'+ly.split('\n').map(l=>lyricLineHTML(l, colors.cue)).join('');
+    });
+  });
+  html+='</div>';
+  return {text:text.replace(/\n{3,}/g,'\n\n').trim()+'\n', html:html};
+}
 function copySetlist(){
   if(!setlist.length){setStatus('Add songs to your setlist first.','error');return;}
   document.getElementById('preview-overlay').classList.remove('open');
-  const date=document.getElementById('svc-date').value;
-  const svcTitle=document.getElementById('svc-title').value||'Worship Service';
-  const dateStr=date?new Date(date+'T12:00:00').toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'}):'';
-
-  // ── SUMMARY BLOCK (top of doc, grouped by section) ──
-  const sectionOrder=['Praise/Avivamiento','Worship/Adoración','Offering/Ofrenda','Altar Call','Special','Extra'];
-  const grouped={};
-  setlist.forEach(s=>{
-    const sec=s.section||'Special';
-    if(!grouped[sec]) grouped[sec]=[];
-    grouped[sec].push(s.title);
-  });
-
-  let text=svcTitle+'\n';
-  if(dateStr) text+=dateStr+'\n';
-  text+='\n';
-
-  // Section summary
-  sectionOrder.forEach(sec=>{
-    if(!grouped[sec]) return;
-    text+=sec+':\n';
-    setlist.filter(s=>s.section===sec).forEach(s=>{ const ek=cleanKey(s.key); text+='  • '+s.title+(ek?' ('+ek+')':'')+'\n'; });
-    text+='\n';
-  });
-  // Any custom sections not in the standard order
-  Object.keys(grouped).forEach(sec=>{
-    if(!sectionOrder.includes(sec)){
-      text+=sec+':\n';
-      setlist.filter(s=>s.section===sec).forEach(s=>{ const ek=cleanKey(s.key); text+='  • '+s.title+(ek?' ('+ek+')':'')+'\n'; });
-      text+='\n';
-    }
-  });
-
-  text+='\f'; // page break after summary
-
-  // ── FULL LYRICS BLOCK (grouped by section, page break between each) ──
-  const sectionOrderFull=['Praise/Avivamiento','Worship/Adoración','Offering/Ofrenda','Altar Call','Special','Extra'];
-  const allSections=[...sectionOrderFull,...Object.keys(grouped).filter(s=>!sectionOrderFull.includes(s))];
-
-  allSections.forEach(sec=>{
-    const songs=setlist.filter(s=>s.section===sec);
-    if(!songs.length) return;
-    text+=sec.toUpperCase()+'\n'+'='.repeat(40)+'\n\n';
-    songs.forEach(s=>{
-      const ek=cleanKey(s.key); text+=s.title+'\n\n';
-      text+=scrubNames(currentLyrics(s))+'\n\n';
-      text+='-'.repeat(40)+'\n\n';
-    });
-    text+='\f'; // page break between sections
-  });
-
-  navigator.clipboard.writeText(text).then(()=>{
-    setStatus('\u2713 Copied! Open a Google Doc and paste (Cmd+V or Ctrl+V).','success');
-  }).catch(()=>{
-    const ta=document.createElement('textarea');
-    ta.value=text;
-    ta.style.position='fixed';
-    ta.style.opacity='0';
-    document.body.appendChild(ta);
-    ta.focus();
-    ta.select();
-    try{
-      document.execCommand('copy');
-      setStatus('\u2713 Copied! Open a Google Doc and paste (Cmd+V or Ctrl+V).','success');
-    } catch {
-      setStatus('Could not copy automatically. Use the Preview button to see your setlist.','error');
-    }
+  const out=buildSetlistCopy();
+  const done=()=>setStatus('✓ Copied! Paste it into a Google Doc.','success');
+  const plainFallback=()=>{
+    const ta=document.createElement('textarea'); ta.value=out.text; ta.style.position='fixed'; ta.style.opacity='0';
+    document.body.appendChild(ta); ta.focus(); ta.select();
+    try{ document.execCommand('copy'); done(); }catch(e){ setStatus('Could not copy automatically. Use Send to Google Docs instead.','error'); }
     document.body.removeChild(ta);
-  });
+  };
+  try{
+    if(window.ClipboardItem && navigator.clipboard && navigator.clipboard.write){
+      // formatted copy: Google Docs keeps the colors, bold labels and big song titles
+      navigator.clipboard.write([new ClipboardItem({
+        'text/html': new Blob([out.html],{type:'text/html'}),
+        'text/plain': new Blob([out.text],{type:'text/plain'})
+      })]).then(done).catch(()=>{ navigator.clipboard.writeText(out.text).then(done).catch(plainFallback); });
+      return;
+    }
+  }catch(e){}
+  if(navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(out.text).then(done).catch(plainFallback);
+  else plainFallback();
 }
 
 // ── BACKUP ───────────────────────────────────────────────────────────────────
@@ -2327,5 +2336,6 @@ function exportJSON(){
 
 init();
 </script>
+<div id="app-version" style="position:fixed;right:10px;bottom:6px;font-size:10px;color:#9a9a9a;font-family:system-ui,sans-serif;opacity:.8;pointer-events:none;z-index:40">v41 · Sep 23, 2026</div>
 </body>
 </html>
