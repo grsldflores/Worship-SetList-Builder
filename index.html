@@ -191,7 +191,7 @@
         Select an event and we'll suggest songs from your library that fit the occasion — plus you can get suggestions for a custom setlist.
       </div>
       <label>Select event</label>
-      <select id="event-select" onchange="renderEventSuggestions()" style="margin-bottom:1rem">
+      <select id="event-select" onchange="renderEventSuggestions()" oninput="renderEventSuggestions()" style="margin-bottom:.5rem">
         <option value="">— Choose an event —</option>
         <option value="marriage">Marriage Conference</option>
         <option value="friends">Friend's Day</option>
@@ -210,6 +210,7 @@
         <option value="esperanza">Abrazando Esperanza</option>
         <option value="aceite">Aceite de Las Viudas</option>
       </select>
+      <button onclick="renderEventSuggestions()" style="margin-bottom:1rem;width:100%">Show songs for this event</button>
       <div id="event-description" style="font-size:13px;color:var(--text2);font-family:system-ui,sans-serif;padding:8px 12px;background:var(--bg2);border-radius:var(--radius);margin-bottom:1rem;display:none;line-height:1.6"></div>
     </div>
 
@@ -1287,25 +1288,18 @@ function renderEventSuggestions(){
   desc.innerHTML = `<strong>${event.label}</strong><br><br>${event.description}<br><br><em>💡 ${event.tip}</em>`;
   wrap.style.display = 'block';
 
-  // Always use MASTER_LIBRARY as the base source (curated event songs are keyed to it)
-  // Also include any custom songs added by the user (from Supabase)
-  document.getElementById('event-description').innerHTML += ` <small style="color:red">[key=${key} src will have ${MASTER_LIBRARY.length} songs]</small>`;
-  const masterTitles = new Set(MASTER_LIBRARY.map(s => s.title.toLowerCase()));
-  const customSongs = (library && library.length)
-    ? library.filter(s => !masterTitles.has(s.title.toLowerCase()))
-    : [];
-  const src = [...MASTER_LIBRARY, ...customSongs];
-
+  // Search MASTER_LIBRARY directly for curated event songs (guaranteed source of truth)
   const suggested = event.songs
     .map(title => {
       const lower = title.toLowerCase();
-      // Try exact match first, then partial match as fallback
-      return src.find(s => s.title.toLowerCase() === lower) ||
-             src.find(s => s.title.toLowerCase().includes(lower) || lower.includes(s.title.toLowerCase()));
+      return MASTER_LIBRARY.find(s => s.title.toLowerCase() === lower) ||
+             MASTER_LIBRARY.find(s => s.title.toLowerCase().includes(lower) || lower.includes(s.title.toLowerCase()));
     })
     .filter(Boolean)
-    .filter((s, i, arr) => arr.findIndex(x => x.title === s.title) === i); // dedupe
+    .filter((s, i, arr) => arr.findIndex(x => x.title === s.title) === i);
 
+  // Keyword matches from full library (includes custom Supabase songs)
+  const src = (library && library.length) ? library : MASTER_LIBRARY;
   const keywordMatches = src.filter(s => {
     const text = (s.title + ' ' + (s.lyrics||'')).toLowerCase();
     return event.keywords.some(k => text.includes(k.toLowerCase())) &&
@@ -1314,7 +1308,7 @@ function renderEventSuggestions(){
 
   const all = [...suggested, ...keywordMatches];
   const el = document.getElementById('event-song-list');
-  if(!all.length){ el.innerHTML=`<div class="empty">No matches found. (src: ${src.length} songs, event songs: ${event.songs.length}, suggested: ${suggested.length})</div>`; return; }
+  if(!all.length){ el.innerHTML='<div class="empty">No matching songs found in your library.</div>'; return; }
 
   el.innerHTML = all.map((s,si) => {
     const isCurated = !!suggested.find(x => x.title === s.title);
@@ -1451,7 +1445,11 @@ function initTouchDrag(){
 
 function removeFromSetlist(i){setlist.splice(i,1);renderSetlist();}
 function clearSetlist(){setlist=[];renderSetlist();}
+var _lastAddTime=0, _lastAddTitle='';
 function addToSetlist(song, section){
+  const now=Date.now();
+  if(song.title===_lastAddTitle && now-_lastAddTime<600) return; // block double-tap on mobile
+  _lastAddTime=now; _lastAddTitle=song.title;
   setlist.push({...song, section: section||song.section});
   renderSetlist();
   setStatus(`"${song.title}" added to setlist.`, 'success');
