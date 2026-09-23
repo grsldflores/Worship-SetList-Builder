@@ -117,7 +117,7 @@
     <div class="stat-grid" id="lib-stats"></div>
     <div class="search-row">
       <input type="text" id="lib-search" placeholder="Search songs, lyrics, artist…" oninput="renderLibrary()" style="flex:1" />
-      <select id="lib-filter" onchange="renderLibrary()" oninput="renderLibrary()" style="width:auto">
+      <select id="lib-filter" onchange="_libFilter=this.value;renderLibrary()" oninput="_libFilter=this.value;renderLibrary()" style="width:auto">
         <option value="">All sections</option>
         <option value="bilingual">Bilingual</option>
         <option value="praise">Praise</option>
@@ -1465,13 +1465,15 @@ function renderStats(){
   const worshipCount = library.filter(s=>s.section==='Worship/Adoración'||s.section==='Altar Call').length;
   const bilingualCount = library.filter(s=>s.language&&s.language.includes('Bilingual')).length;
   document.getElementById('lib-stats').innerHTML=`
-    <div class="stat" onclick="setLibFilter('')" style="cursor:pointer" title="Show all"><div class="stat-n">${library.length}</div><div class="stat-l">All Songs</div></div>
-    <div class="stat" onclick="setLibFilter('bilingual')" style="cursor:pointer" title="Filter bilingual"><div class="stat-n">${bilingualCount}</div><div class="stat-l">Bilingual</div></div>
-    <div class="stat" onclick="setLibFilter('praise')" style="cursor:pointer" title="Filter Praise &amp; Ofrenda"><div class="stat-n">${praiseCount}</div><div class="stat-l">Praise</div></div>
-    <div class="stat" onclick="setLibFilter('worship')" style="cursor:pointer" title="Filter Worship &amp; Altar Call"><div class="stat-n">${worshipCount}</div><div class="stat-l">Worship</div></div>`;
+    <div class="stat" onclick="setLibFilter('')" style="cursor:pointer;${_libFilter===''?'background:#eeedfe;outline:2px solid #4a3fa0':''}" title="Show all"><div class="stat-n">${library.length}</div><div class="stat-l">All Songs</div></div>
+    <div class="stat" onclick="setLibFilter('bilingual')" style="cursor:pointer;${_libFilter==='bilingual'?'background:#eeedfe;outline:2px solid #4a3fa0':''}" title="Filter bilingual"><div class="stat-n">${bilingualCount}</div><div class="stat-l">Bilingual</div></div>
+    <div class="stat" onclick="setLibFilter('praise')" style="cursor:pointer;${_libFilter==='praise'?'background:#eeedfe;outline:2px solid #4a3fa0':''}" title="Filter Praise"><div class="stat-n">${praiseCount}</div><div class="stat-l">Praise</div></div>
+    <div class="stat" onclick="setLibFilter('worship')" style="cursor:pointer;${_libFilter==='worship'?'background:#eeedfe;outline:2px solid #4a3fa0':''}" title="Filter Worship"><div class="stat-n">${worshipCount}</div><div class="stat-l">Worship</div></div>`;
 }
 
+var _libFilter = '';
 function setLibFilter(val){
+  _libFilter = val;
   document.getElementById('lib-filter').value = val;
   renderLibrary();
 }
@@ -1479,7 +1481,8 @@ function setLibFilter(val){
 function renderLibrary(){
   const src = (library && library.length) ? library : MASTER_LIBRARY;
   const q=(document.getElementById('lib-search').value||'').toLowerCase().trim();
-  const sec=document.getElementById('lib-filter').value;
+  const dropVal = document.getElementById('lib-filter').value;
+  const sec = dropVal || _libFilter;
   const filtered=src.filter(s=>{
     const matchQ = !q || s.title.toLowerCase().includes(q) || (s.lyrics||'').toLowerCase().includes(q) || (s.artist||'').toLowerCase().includes(q);
     let matchSec = true;
