@@ -935,11 +935,19 @@ async function saveSharedSetlist(){
     setStatus('Setlist not saved — check your connection. Your changes are still on this screen.','error');
   }finally{ _syncing=false; }
 }
+// "No Hay Santo Como El Senor" and "No Hay Santo Como El Señor" are the same song
+function titleKey(t){ return String(t||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/\s+/g,' ').trim(); }
+function findLibrarySong(title){
+  if(!title) return null;
+  var exact=library.find(function(x){ return x && x.title===title; });
+  if(exact) return exact;
+  var k=titleKey(title);
+  return library.find(function(x){ return x && x.title && titleKey(x.title)===k; }) || null;
+}
 function applyRemoteSetlist(row){
-  var byTitle={}; library.forEach(function(x){ if(x && x.title) byTitle[x.title]=x; });
   setlist=(row.songs||[]).filter(function(x){return x && x.title;}).map(function(x){
-    var lib=byTitle[x.title];
-    return Object.assign({}, lib||{}, {title:x.title, section:x.section||(lib&&lib.section)||'Special', key:(x.key!==undefined&&x.key!=='')?x.key:((lib&&lib.key)||''), artist:x.artist||(lib&&lib.artist)||'', language:x.language||(lib&&lib.language)||'', lyrics:(lib&&lib.lyrics)||x.lyrics||''});
+    var lib=findLibrarySong(x.title);
+    return Object.assign({}, lib||{}, {title:(lib&&lib.title)||x.title, section:x.section||(lib&&lib.section)||'Special', key:(x.key!==undefined&&x.key!=='')?x.key:((lib&&lib.key)||''), artist:x.artist||(lib&&lib.artist)||'', language:x.language||(lib&&lib.language)||'', lyrics:(lib&&lib.lyrics)||x.lyrics||''});
   });
   if(row.service_date) document.getElementById('svc-date').value=row.service_date;
   document.getElementById('svc-title').value=row.service_title||'';
@@ -1997,7 +2005,7 @@ function scrubNames(text){
   return String(text||'').replace(/^(\s*)(RYAN|KAREN|CANDY)\s*:/gim,'$1SOLO:').replace(TEAM_NAMES,'');
 }
 function currentLyrics(s){
-  var lib=library.find(function(x){ return x && x.title===s.title; });
+  var lib=findLibrarySong(s.title);
   return (lib && lib.lyrics) || s.lyrics || '';
 }
 async function sendSetlistToDocs(){
@@ -2011,7 +2019,13 @@ async function sendSetlistToDocs(){
   const sections=names.map(function(n){
     return {name:n, songs:setlist.filter(function(s){return (s.section||'Special')===n;}).map(function(s){ return {title:s.title, key:cleanKey(s.key), lyrics:scrubNames(currentLyrics(s))}; })};
   }).filter(function(x){return x.songs.length;});
-  const docTitle=svcTitle+(date?' — '+date:'');
+  let docTitle=svcTitle;
+  if(date){
+    const d=new Date(date+'T12:00:00');
+    const dayName=d.toLocaleDateString('en-US',{weekday:'long'});
+    const mm=String(d.getMonth()+1).padStart(2,'0'), dd=String(d.getDate()).padStart(2,'0'), yy=String(d.getFullYear()).slice(-2);
+    docTitle+=' — '+dayName+', '+mm+'/'+dd+'/'+yy;
+  }
   setStatus('Creating Google Doc…','info');
   try{
     const data=await callGoogle('createSetlistDoc',{title:docTitle, heading:svcTitle, dateStr:dateStr, sections:sections});
