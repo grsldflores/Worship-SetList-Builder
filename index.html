@@ -117,7 +117,7 @@
     <div class="stat-grid" id="lib-stats"></div>
     <div class="search-row">
       <input type="text" id="lib-search" placeholder="Search songs, lyrics, artist…" oninput="renderLibrary()" style="flex:1" />
-      <select id="lib-filter" onchange="_libFilter=this.value;renderLibrary()" oninput="_libFilter=this.value;renderLibrary()" style="width:auto">
+      <select id="lib-filter" onchange="setLibFilter(this.value)" oninput="setLibFilter(this.value)" style="width:auto">
         <option value="">All sections</option>
         <option value="bilingual">Bilingual</option>
         <option value="praise">Praise</option>
@@ -1460,6 +1460,7 @@ function addToSetlist(song, section){
 }
 
 // ── LIBRARY ──────────────────────────────────────────────────────────────────
+var _libFilter = '';
 function renderStats(){
   const praiseCount = library.filter(s=>s.section==='Praise/Avivamiento'||s.section==='Offering/Ofrenda').length;
   const worshipCount = library.filter(s=>s.section==='Worship/Adoración'||s.section==='Altar Call').length;
@@ -1471,18 +1472,18 @@ function renderStats(){
     <div class="stat" onclick="setLibFilter('worship')" style="cursor:pointer;${_libFilter==='worship'?'background:#eeedfe;outline:2px solid #4a3fa0':''}" title="Filter Worship"><div class="stat-n">${worshipCount}</div><div class="stat-l">Worship</div></div>`;
 }
 
-var _libFilter = '';
 function setLibFilter(val){
   _libFilter = val;
-  document.getElementById('lib-filter').value = val;
+  var sel = document.getElementById('lib-filter');
+  if(sel) sel.value = val;
+  renderStats();
   renderLibrary();
 }
 
 function renderLibrary(){
   const src = (library && library.length) ? library : MASTER_LIBRARY;
   const q=(document.getElementById('lib-search').value||'').toLowerCase().trim();
-  const dropVal = document.getElementById('lib-filter').value;
-  const sec = dropVal || _libFilter;
+  const sec = _libFilter;
   const filtered=src.filter(s=>{
     const matchQ = !q || s.title.toLowerCase().includes(q) || (s.lyrics||'').toLowerCase().includes(q) || (s.artist||'').toLowerCase().includes(q);
     let matchSec = true;
@@ -1498,7 +1499,7 @@ function renderLibrary(){
   const el=document.getElementById('lib-rows');
   if(!deduped.length){el.innerHTML=`<div class="empty">${src.length===0?'Library empty.':'No matches.'}</div>`;return;}
   el.innerHTML=deduped.map(s=>{
-    const i=src.indexOf(s);
+    const i=library.indexOf(s);
     return `<div class="song-row">
       <div style="flex:1;min-width:0">
         <div class="song-title">${s.title}</div>
