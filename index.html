@@ -128,7 +128,7 @@
   <div id="pane-library" style="display:none">
     <div class="stat-grid" id="lib-stats"></div>
     <div class="search-row">
-      <input type="text" id="lib-search" placeholder="Search songs or artist…" oninput="renderLibrary()" onkeyup="renderLibrary()" onchange="renderLibrary()" style="flex:1" />
+      <input type="text" id="lib-search" placeholder="Search songs or artist…" oninput="renderLibrary()" style="flex:1" />
       <select id="lib-filter" onchange="setLibFilter(this.value)" oninput="setLibFilter(this.value)" style="width:auto">
         <option value="">All sections</option>
         <option value="bilingual">Bilingual</option>
@@ -1171,7 +1171,7 @@ function addMedleyByIndex(ri){
     setlist.push(match ? JSON.parse(JSON.stringify(match)) : {title:title,section:'Praise/Avivamiento',artist:'',language:'',lyrics:''});
     added++;
   }
-  switchMain('setlist');
+  renderSetlist();
   setStatus('Added '+added+' songs to setlist.','success');
 }
 
@@ -1342,7 +1342,7 @@ async function addCustomMedleyToSetlist(ci){
     setlist.push(match ? JSON.parse(JSON.stringify(match)) : {title:title,section:'Praise/Avivamiento',artist:'',language:'',lyrics:''});
     added++;
   }
-  switchMain('setlist');
+  renderSetlist();
   setStatus('Added '+added+' songs to setlist! ✓','success');
 }
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1359,7 +1359,6 @@ function addSongsToSetlist(songsJson){
     added++;
   });
   renderSetlist();
-  switchMain('setlist');
   setStatus('Added '+added+' songs to setlist.', 'success');
 }
 
@@ -1383,7 +1382,6 @@ function addMedleyToSetlist(i){
     added++;
   });
   renderSetlist();
-  switchMain('setlist');
   setStatus(`Added ${added} songs to setlist.`, 'success');
 }
 
@@ -1474,7 +1472,7 @@ function renderEventSuggestions(){
         <div class="song-title">${s.title}${!isCurated?' <span style="font-size:10px;color:var(--text3);font-family:system-ui,sans-serif">(keyword match)</span>':''}</div>
         <div style="margin-top:3px">${getBadge(s.section)}</div>
       </div>
-      <button style="font-size:12px;padding:4px 10px" onclick="addToSetlist(eventSongCache[${si}]); switchMain('setlist')">+ Add</button>
+      <button style="font-size:12px;padding:4px 10px" onclick="addToSetlist(eventSongCache[${si}]); flashAdded(this)">+ Add</button>
     </div>`;
   }).join('');
   window.eventSongCache = all;
@@ -1536,6 +1534,7 @@ function getBadge(s){return `<span class="badge ${BADGE_CLASS[s]||'special'}">${
 // ── SETLIST ──────────────────────────────────────────────────────────────────
 function renderSetlist(){
   const el=document.getElementById('setlist-rows');
+  updateSetlistTabCount();
   if(!setlist.length){el.innerHTML='<div class="empty">No songs yet — pick from library or search Drive</div>';syncSetlistSoon();return;}
   const sections=['Praise/Avivamiento','Worship/Adoración','Offering/Ofrenda','Altar Call','Special','Extra'];
   el.innerHTML=setlist.map((s,i)=>`
@@ -1627,6 +1626,16 @@ function clearSetlist(btn){
   if(btn){ delete btn.dataset.armed; btn.textContent='Clear'; }
   setlist=[]; renderSetlist(); setStatus('Setlist cleared.','info');
 }
+function flashAdded(btn){
+  if(!btn) return;
+  if(!btn.dataset.orig) btn.dataset.orig=btn.innerHTML;
+  btn.innerHTML='✓'; btn.style.color='#27500a';
+  clearTimeout(btn._t); btn._t=setTimeout(function(){ btn.innerHTML=btn.dataset.orig; btn.style.color=''; }, 1200);
+}
+function updateSetlistTabCount(){
+  var t=document.querySelector('#main-tabs .tab'); if(!t) return;
+  t.textContent = setlist.length ? 'Setlist ('+setlist.length+')' : 'Setlist';
+}
 var _lastAddTime=0, _lastAddTitle='';
 function addToSetlist(song, section){
   const now=Date.now();
@@ -1675,10 +1684,12 @@ function setLibFilter(val){
 function renderLibrary(){
   var src = ((library && library.length) ? library : MASTER_LIBRARY).filter(function(x){return x && x.title;});
   var searchEl = document.getElementById('lib-search');
-  var q = (searchEl ? searchEl.value||'' : '').toLowerCase().trim();
+  var rawQ = searchEl ? searchEl.value||'' : '';
+  _lastSearchVal = rawQ; // keep the backup poll from redrawing the same results again
+  var q = titleKey(rawQ);
   var sec = _libFilter||'';
   var filtered = src.filter(function(s){
-    var matchQ = !q || s.title.toLowerCase().indexOf(q)>=0 || (s.artist||'').toLowerCase().indexOf(q)>=0;
+    var matchQ = !q || titleKey(s.title).indexOf(q)>=0 || titleKey(s.artist).indexOf(q)>=0;
     var matchSec = true;
     if(sec==='bilingual') matchSec = !!(s.language && s.language.indexOf('Bilingual')>=0);
     else if(sec==='praise') matchSec = s.section==='Praise/Avivamiento' || s.section==='Offering/Ofrenda';
@@ -1704,7 +1715,7 @@ function renderLibrary(){
       + '<div style="margin-top:3px;display:flex;gap:4px;flex-wrap:wrap">'+getBadge(s.section)+artistBadge+keyBadge+'</div>'
       + '</div>'
       + '<button class="icon-btn" onclick="viewSong('+i+')" title="View lyrics"><svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>'
-      + '<button class="icon-btn" onclick="addToSetlist(library['+i+']);switchMain(\'setlist\')" title="Add to setlist"><svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>'
+      + '<button class="icon-btn" onclick="addToSetlist(library['+i+']);flashAdded(this)" title="Add to setlist"><svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>'
       + '<button class="icon-btn danger" id="del-btn-'+i+'" onclick="confirmDeleteSong('+i+',this)" title="Delete"><svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg></button>'
       + '</div>';
   }
@@ -1771,7 +1782,7 @@ function viewSong(i){
   document.getElementById('view-overlay').classList.add('open');
 }
 function closeView(){document.getElementById('view-overlay').classList.remove('open');}
-function addToSetlistFromView(){addToSetlist(library[viewIdx]);closeView();switchMain('setlist');}
+function addToSetlistFromView(){addToSetlist(library[viewIdx]);closeView();}
 
 // ── EDIT MODAL ───────────────────────────────────────────────────────────────
 function editSongLyrics(i){ openEdit(i); }
