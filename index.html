@@ -112,6 +112,14 @@
       <button id="clear-setlist-btn" onclick="clearSetlist(this)" style="color:#791f1f">Clear</button>
     </div>
     <div id="setlist-sync-note" style="font-size:11px;color:var(--text3);font-family:system-ui,sans-serif;margin-top:6px"></div>
+    <div style="display:flex;flex-wrap:wrap;align-items:center;gap:14px;margin-top:10px;font-size:12px;color:var(--text2);font-family:system-ui,sans-serif">
+      <span style="font-weight:500">Google Doc colors:</span>
+      <label style="display:flex;align-items:center;gap:6px;margin:0;text-transform:none;letter-spacing:0;font-size:12px">Category
+        <input type="color" id="doc-color-section" onchange="saveDocColors()" oninput="saveDocColors()" style="width:34px;height:26px;padding:0;border:0.5px solid var(--border2);border-radius:6px;background:none;cursor:pointer" /></label>
+      <label style="display:flex;align-items:center;gap:6px;margin:0;text-transform:none;letter-spacing:0;font-size:12px">Song title
+        <input type="color" id="doc-color-song" onchange="saveDocColors()" oninput="saveDocColors()" style="width:34px;height:26px;padding:0;border:0.5px solid var(--border2);border-radius:6px;background:none;cursor:pointer" /></label>
+      <button onclick="resetDocColors()" style="font-size:11px;padding:3px 10px">Reset</button>
+    </div>
   </div>
 
   <!-- LIBRARY -->
@@ -857,6 +865,7 @@ function mergeLibrary(rows){
 
 // ── INIT ─────────────────────────────────────────────────────────────────────
 async function init(){
+  try{ loadDocColors(); }catch(e){}
   document.getElementById('svc-date').value = new Date().toISOString().split('T')[0];
   // Always load master library first so it's never empty
   library = MASTER_LIBRARY.map(s => ({...s, addedDate: s.addedDate||'2026-05-29'}));
@@ -1994,6 +2003,25 @@ function previewSetlist(){
   document.getElementById('preview-overlay').classList.add('open');
 }
 
+// ── GOOGLE DOC COLORS (remembered on this device) ──
+var DOC_COLOR_DEFAULTS={section:'#8b2c1a', song:'#000000'};
+function loadDocColors(){
+  var c={};
+  try{ c=JSON.parse(localStorage.getItem('docColors')||'{}')||{}; }catch(e){}
+  document.getElementById('doc-color-section').value=c.section||DOC_COLOR_DEFAULTS.section;
+  document.getElementById('doc-color-song').value=c.song||DOC_COLOR_DEFAULTS.song;
+}
+function saveDocColors(){
+  try{ localStorage.setItem('docColors', JSON.stringify({section:document.getElementById('doc-color-section').value, song:document.getElementById('doc-color-song').value})); }catch(e){}
+}
+function resetDocColors(){
+  try{ localStorage.removeItem('docColors'); }catch(e){}
+  loadDocColors();
+}
+function getDocColors(){
+  return {section:document.getElementById('doc-color-section').value||DOC_COLOR_DEFAULTS.section, song:document.getElementById('doc-color-song').value||DOC_COLOR_DEFAULTS.song};
+}
+
 // ── SEND TO GOOGLE DOCS ──
 // Piano player names never leave the builder: strip them from keys and lyrics.
 var TEAM_NAMES=/\b(Ryan|Karen|Candy)\b/gi;
@@ -2022,13 +2050,13 @@ async function sendSetlistToDocs(){
   let docTitle=svcTitle;
   if(date){
     const d=new Date(date+'T12:00:00');
-    const dayName=d.toLocaleDateString('en-US',{weekday:'long'});
     const mm=String(d.getMonth()+1).padStart(2,'0'), dd=String(d.getDate()).padStart(2,'0'), yy=String(d.getFullYear()).slice(-2);
-    docTitle+=' — '+dayName+', '+mm+'/'+dd+'/'+yy;
+    docTitle+=' - '+mm+'/'+dd+'/'+yy;
   }
   setStatus('Creating Google Doc…','info');
   try{
-    const data=await callGoogle('createSetlistDoc',{title:docTitle, heading:svcTitle, dateStr:dateStr, sections:sections});
+    const colors=getDocColors();
+    const data=await callGoogle('createSetlistDoc',{title:docTitle, heading:svcTitle, dateStr:dateStr, sections:sections, sectionColor:colors.section, songColor:colors.song});
     setStatusLink('Google Doc created.', data.url, 'Open the doc');
   }catch(e){ setStatus(googleErrorText(e),'error'); }
 }
