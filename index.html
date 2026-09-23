@@ -116,7 +116,7 @@
   <div id="pane-library" style="display:none">
     <div class="stat-grid" id="lib-stats"></div>
     <div class="search-row">
-      <input type="text" id="lib-search" placeholder="Search songs, lyrics, artist…" oninput="renderLibrary()" style="flex:1" />
+      <input type="text" id="lib-search" placeholder="Search songs, lyrics, artist…" oninput="renderLibrary()" onkeyup="renderLibrary()" onchange="renderLibrary()" style="flex:1" />
       <select id="lib-filter" onchange="setLibFilter(this.value)" oninput="setLibFilter(this.value)" style="width:auto">
         <option value="">All sections</option>
         <option value="bilingual">Bilingual</option>
@@ -1347,13 +1347,29 @@ function getEventSetlist(){
 }
 
 
+var _searchPollInterval = null;
+var _lastSearchVal = '';
+function startSearchPoll(){
+  if(_searchPollInterval) return;
+  _searchPollInterval = setInterval(function(){
+    var el = document.getElementById('lib-search');
+    if(!el) return;
+    var v = el.value;
+    if(v !== _lastSearchVal){ _lastSearchVal = v; renderLibrary(); }
+  }, 200);
+}
+function stopSearchPoll(){
+  if(_searchPollInterval){ clearInterval(_searchPollInterval); _searchPollInterval = null; }
+}
+
 function switchMain(tab){
   ['setlist','library','medley','events','add'].forEach((t,i)=>{
     document.getElementById('pane-'+t).style.display = t===tab?'block':'none';
     document.querySelectorAll('#main-tabs .tab')[i].classList.toggle('active', t===tab);
   });
+  if(tab!=='library') stopSearchPoll();
   if(tab==='setlist'){renderSetlist();}
-  if(tab==='library'){renderLibrary(); renderStats();}
+  if(tab==='library'){renderLibrary(); renderStats(); startSearchPoll();}
   if(tab==='events'){renderEventSuggestions();}
   if(tab==='medley'){
     loadCustomMedleys().then(()=>renderMedley());
@@ -1485,7 +1501,7 @@ function renderLibrary(){
   const q=(document.getElementById('lib-search').value||'').toLowerCase().trim();
   const sec = _libFilter;
   const filtered=src.filter(s=>{
-    const matchQ = !q || s.title.toLowerCase().includes(q) || (s.lyrics||'').toLowerCase().includes(q) || (s.artist||'').toLowerCase().includes(q);
+    const matchQ = !q || s.title.toLowerCase().includes(q) || (s.artist||'').toLowerCase().includes(q);
     let matchSec = true;
     if(sec==='bilingual') matchSec = s.language && s.language.includes('Bilingual');
     else if(sec==='praise') matchSec = s.section==='Praise/Avivamiento' || s.section==='Offering/Ofrenda';
@@ -1499,7 +1515,7 @@ function renderLibrary(){
   const el=document.getElementById('lib-rows');
   if(!deduped.length){el.innerHTML=`<div class="empty">${src.length===0?'Library empty.':'No matches.'}</div>`;return;}
   el.innerHTML=deduped.map(s=>{
-    const i=library.indexOf(s);
+    const i=library.findIndex(x=>x.title===s.title);
     return `<div class="song-row">
       <div style="flex:1;min-width:0">
         <div class="song-title">${s.title}</div>
