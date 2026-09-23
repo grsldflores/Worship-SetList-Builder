@@ -98,8 +98,8 @@
   <div id="pane-setlist">
     <div class="card">
       <div class="two-col" style="margin-bottom:10px">
-        <div class="field"><label>Service date</label><input type="date" id="svc-date" /></div>
-        <div class="field"><label>Title</label><input type="text" id="svc-title" placeholder="e.g. Sunday Service" /></div>
+        <div class="field"><label>Service date</label><input type="date" id="svc-date" onchange="syncSetlistSoon()" oninput="syncSetlistSoon()" /></div>
+        <div class="field"><label>Title</label><input type="text" id="svc-title" placeholder="e.g. Sunday Service" oninput="syncSetlistSoon()" onchange="syncSetlistSoon()" /></div>
       </div>
       <div id="setlist-rows"><div class="empty">No songs yet — pick from library or search Drive</div></div>
     </div>
@@ -107,9 +107,11 @@
       <button onclick="switchMain('library')">Pick from library</button>
       <button onclick="openDriveModal()">Search Drive</button>
       <button onclick="previewSetlist()">Preview</button>
-      <button class="primary" onclick="copySetlist()">Copy setlist</button>
-      <button onclick="clearSetlist()" style="color:#791f1f">Clear</button>
+      <button class="primary" onclick="sendSetlistToDocs()">Send to Google Docs</button>
+      <button onclick="copySetlist()">Copy setlist</button>
+      <button id="clear-setlist-btn" onclick="clearSetlist(this)" style="color:#791f1f">Clear</button>
     </div>
+    <div id="setlist-sync-note" style="font-size:11px;color:var(--text3);font-family:system-ui,sans-serif;margin-top:6px"></div>
   </div>
 
   <!-- LIBRARY -->
@@ -134,7 +136,7 @@
     <div class="btn-row">
       <button onclick="backupToDrive()">Back up to Drive</button>
       <button onclick="exportJSON()">Download JSON</button>
-      <button onclick="resetLibrary()" style="color:#791f1f">Reset library</button>
+      <button onclick="resetLibrary(this)" style="color:#791f1f">Reset library</button>
     </div>
   </div>
 
@@ -353,7 +355,8 @@
     <h3>Setlist preview</h3>
     <div id="preview-content"></div>
     <div class="btn-row">
-      <button class="primary" onclick="copySetlist()">Copy setlist</button>
+      <button class="primary" onclick="sendSetlistToDocs()">Send to Google Docs</button>
+      <button onclick="copySetlist()">Copy setlist</button>
       <button onclick="document.getElementById('preview-overlay').classList.remove('open')">Close</button>
     </div>
   </div>
@@ -618,7 +621,7 @@ Always On Time //`},
   {title:"You Are Good / Eres Fiel",section:"Praise/Avivamiento",artist:"",language:"Bilingual (EN/ES)",lyrics:`VERSO 1\n// Señor eres fiel\nY tu misericordia eterna //\n\nPRECORO\nGente de toda lengua y nación\nDe generación a generación\n\nCORO\n// Te Adoramos hoy\nAleluya, Aleluya\nTe Adoramos hoy eres Señor //\nEres Fiel!!\n\nCHORUS\n// We worship you\nHallelujah, Hallelujah\nWe worship you, for who you are //\nYou are Good!!\n\nBRIDGE\n// You are good all the time\nAll the time, You are good //\n\nPUENTE\n// Eres Fiel, Siempre Fiel\nSiempre fiel, Tú Eres Fiel //`},
   {title:"Nombre No Hay / No Other Name",section:"Praise/Avivamiento",artist:"",language:"Bilingual (EN/ES)",lyrics:`VERSO\nNombre sobre todo nombre\nReinarás por siempre\nSiempre igual\nexáltale\n\nCristo sobre todo nombre\nReinarás por siempre\nSiempre igual\nexáltale\n\nCORO\nNombre no hay, más grande\nNombre no hay, más fuerte\nNombre no hay, por siempre\nVen exáltale\n\nNombre no hay, que sane\nNombre no hay, que salve\nNombre no hay, precioso\nExáltale\n\nVERSE\nPraise the Name above all names\nThe one who reigns forever\nStill the same\nPraise the name\n\nCHORUS\nNo other name that's higher\nNo other name that's stronger\nNo other name forever I will praise the name\n\nNo other name can heal us\nNo other name can free us\nNo other name so precious\nPraise the name\n\nPUENTE\nEn el cielo y en la tierra\nTe proclamaré\nCristo, Cristo\nCristo precioso es\n\nBRIDGE\nEvery nation all creation\nWill proclaim your name\nJesus, Jesus,\nJesus no other name`},
   {title:"Covenant Keeping God",section:"Worship/Adoración",artist:"",language:"Bilingual (EN/ES)",lyrics:`VERSE\nYou'll never leave me\nYou said that You won't forsake me\nYou walk beside me\nAnd that is all that matters\n\nCHORUS\nYou are the covenant keeping God\nYou are the covenant keeping God\nYahweh, the covenant keeping God\nYahweh, the covenant keeping God\n\nVERSO\nNunca me dejas\nDices que no me abandonas\nCaminas conmigo\nY eso es lo que importa\n\nCORO\nSiempre el pacto tú guardarás\nSiempre el pacto tú guardarás\nYahweh, el pacto tú guardarás\nYahweh, el pacto tú guardarás\n\nBRIDGE\nThe sun won't smite me\nAnd the moon, Lord, will not hurt me\nThe flood won't sweep me\nMy Lord, You are my anchor\n\nPUENTE\nEl sol no me hiere\nLa luna, no me hará daño\nY en la tormenta\nSeñor eres mi ancla`},
-  {title:"What A God",section:"Worship/Adoración",artist:"",language:"Bilingual (EN/ES)",lyrics:`VERSE 1\nWho thought I'd find You at the lowest place?\nWho thought You'd feel me in the crowd?\nWho knew You make good of my mistakes?\nYou're nothin' like I thought You were, You're better\n\nCHORUS\nWhat a God, what a God\nWhat a God, what a God\n\nVERSE 2\nI thought You'd show up for perfection\n'Cause what kind of God looks for the lost?\nThey say it's over for a sinner\nAlthough You say, "No, it's not, no, it's not"\n\nCHORUS\nWhat a God, what a God\nWhat a God, what a God\n\nVERSO 1\n¿Quién pensó que en todas mis fallas\nQue obrarías todo para bien?\n¿Quién pensó que allí te encontraría?\nEres superior a lo que imaginaba\n\nCORO\nQuién es como mi Dios?\nQuién es como mi Dios?\n\nBRIDGE\nIf the highest place I reached\nIs at Your feet\nThen I've done it all\nIf the best thing that I've seen\nIs Your glory\nThen I've seen it all\nYour love has changed my life\nForever satisfied\nGod You are my everything\n\nBRIDGE 2\nIf one word\nIs the only thing You speak\nThen I've heard it all\nIf I feel Your heart\nAnd never see Your hand\nI still have it all\nNo treasure of this life\nCould ever satisfy\nGod You are my everything\n\nRefrain\nGod You are my everything\nGod You are my everything\nGod You aaare\n\nCHORUS\nAngels bow before him\nHeaven and earth adore him\nKAREN: What a God, What a God\nNOSOTROS | ECHOES: What a God, What a God\n\nPUENTE\nSi mi límite es llegar ante tus pies\nEso bastará\nSi Tu gloria he podido contemplar\nPor ver no hay nada más\nTu amor me transformó\nSacias mi corazón\nDios, Tú eres todo en mí\n\nPUENTE 2\nSi no te veo, pero Tu amor me das\nNo necesito más\nSi solo una palabra Tú me das\nAún me bastará\nNo hay tesoro aquí\nQue se compare a Ti\nDios, Tú eres todo en mí\n\nRefrain\nDios Tú Eres Todo en mí\nDios Tú Eres Todo En mí\nDios Tu Ereees\n\nCORO\nQuién es como mi Dios?\nQuién es como mi Dios?\n\nCORO 2\nÁngeles se postran\nCielo y tierra te adoran\nKAREN: ¿Quién es como mi Dios?\nNOSOTROS | ECOS: ¿Quién es como mi Dios?\n¿Quién es….?`},
+  {title:"What A God",section:"Worship/Adoración",artist:"",language:"Bilingual (EN/ES)",lyrics:`VERSE 1\nWho thought I'd find You at the lowest place?\nWho thought You'd feel me in the crowd?\nWho knew You make good of my mistakes?\nYou're nothin' like I thought You were, You're better\n\nCHORUS\nWhat a God, what a God\nWhat a God, what a God\n\nVERSE 2\nI thought You'd show up for perfection\n'Cause what kind of God looks for the lost?\nThey say it's over for a sinner\nAlthough You say, "No, it's not, no, it's not"\n\nCHORUS\nWhat a God, what a God\nWhat a God, what a God\n\nVERSO 1\n¿Quién pensó que en todas mis fallas\nQue obrarías todo para bien?\n¿Quién pensó que allí te encontraría?\nEres superior a lo que imaginaba\n\nCORO\nQuién es como mi Dios?\nQuién es como mi Dios?\n\nBRIDGE\nIf the highest place I reached\nIs at Your feet\nThen I've done it all\nIf the best thing that I've seen\nIs Your glory\nThen I've seen it all\nYour love has changed my life\nForever satisfied\nGod You are my everything\n\nBRIDGE 2\nIf one word\nIs the only thing You speak\nThen I've heard it all\nIf I feel Your heart\nAnd never see Your hand\nI still have it all\nNo treasure of this life\nCould ever satisfy\nGod You are my everything\n\nRefrain\nGod You are my everything\nGod You are my everything\nGod You aaare\n\nCHORUS\nAngels bow before him\nHeaven and earth adore him\nSOLO: What a God, What a God\nNOSOTROS | ECHOES: What a God, What a God\n\nPUENTE\nSi mi límite es llegar ante tus pies\nEso bastará\nSi Tu gloria he podido contemplar\nPor ver no hay nada más\nTu amor me transformó\nSacias mi corazón\nDios, Tú eres todo en mí\n\nPUENTE 2\nSi no te veo, pero Tu amor me das\nNo necesito más\nSi solo una palabra Tú me das\nAún me bastará\nNo hay tesoro aquí\nQue se compare a Ti\nDios, Tú eres todo en mí\n\nRefrain\nDios Tú Eres Todo en mí\nDios Tú Eres Todo En mí\nDios Tu Ereees\n\nCORO\nQuién es como mi Dios?\nQuién es como mi Dios?\n\nCORO 2\nÁngeles se postran\nCielo y tierra te adoran\nSOLO: ¿Quién es como mi Dios?\nNOSOTROS | ECOS: ¿Quién es como mi Dios?\n¿Quién es….?`},
   {title:"Santo Es El Que Vive / Holy Is The One Who Lives",section:"Altar Call",artist:"",language:"Bilingual (EN/ES)",lyrics:`VERSO\nCorrió su sangre por el madero\nA él no lo mataron, se entregó primero\nDe tal manera amó Jesús\nQue entregó su vida en la Cruz\n\nNo dijo nada, no abrió su boca\nLe hieren, le golpean, pero Él perdona\nDe tal manera amó Jesús\nQue entregó su vida en la Cruz\n\nCORO\nSanto es el que vive, santo es el que reina\nSanto en las alturas, santo aquí en la tierra\nSanto en el pesebre, santo en el sepulcro\nSanta es su sangre derramada en la Cruz\n\nPUENTE\nTodos lo verán\nComo un rey en las nubes volverá\nCoronado en poder y autoridad\nEl cordero y león reinará\n\nPUENTE 2\n// Santo, santo, santo,\nsanto es Jesús de Nazaret //\n\nCHORUS\nThe one who lives is Holy, the one who reigns is Holy\nHoly in the heavens, Holy here on earth\nHoly in the manger, Holy on the tomb,\nHoly is the blood of Jesus poured on the cross`},
   {title:"Llévame Al Lugar Santísimo",section:"Altar Call",artist:"",language:"Spanish only",lyrics:`CORO\nLlévame al lugar santísimo\nPor la sangre del Cordero Redentor\nLlévame al lugar santísimo\nTócame, límpiame, heme aquí\n\nVERSO\nSeñor llévame a tus atrios\nal lugar santo\nal altar de bronce\nSeñor tu rostro quiero ver\n\nPásame en la muchedumbre\nPor donde el sacerdote canta\nTengo hambre y sed de justicia\nY solo encuentro un lugar`},
   {title:"Tu Nombre Es Santo",section:"Altar Call",artist:"",language:"Spanish only",lyrics:`Yo entro al lugar más santo\nA través del cordero de Dios\nY vengo tan solo a adorarte\nYo entro a honrar al Yo Soy\n\nDios, te adoro a Ti\nTe adoro a Ti\nDios, te adoro a Ti\nTe adoro a Ti\n\nPues Su nombre es Santo\nSanto Dios\nPues Su nombre es Santo\nSanto Dios`},
@@ -874,11 +877,19 @@ async function init(){
   } finally {
     setStatus('','info');
   }
+  await loadAppSettings();
+  await loadSharedSetlist();
+  startSetlistPolling();
   await loadCustomMedleys();
 }
 
-async function resetLibrary(){
-  if(!confirm('Reload master library? Your custom-added songs will still be here.')) return;
+async function resetLibrary(btn){
+  if(btn && !btn.dataset.armed){
+    btn.dataset.armed='1'; btn.textContent='Tap again to reload';
+    setTimeout(function(){ if(btn){ delete btn.dataset.armed; btn.textContent='Reset library'; } }, 3500);
+    return;
+  }
+  if(btn){ delete btn.dataset.armed; btn.textContent='Reset library'; }
   try {
     const res = await sbFetch('custom_songs?select=*&order=created_at.asc');
     library = mergeLibrary(res.ok ? await res.json() : []);
@@ -887,12 +898,126 @@ async function resetLibrary(){
   setStatus(`Library reloaded — ${library.length} songs.`, 'success');
 }
 
+// ── SHARED SETLIST (same on every device) ───────────────────────────────────
+var _setlistLoaded=false, _lastSyncedJSON=null, _lastRemoteAt=null, _syncTimer=null, _syncing=false;
+function setlistState(){
+  return {
+    service_date: document.getElementById('svc-date').value || null,
+    service_title: document.getElementById('svc-title').value || '',
+    songs: setlist.map(function(s){ return {title:s.title, section:s.section, key:s.key||'', artist:s.artist||'', language:s.language||'', lyrics:s.lyrics||''}; })
+  };
+}
+function setSyncNote(t){ var el=document.getElementById('setlist-sync-note'); if(el) el.textContent=t||''; }
+function syncSetlistSoon(){
+  if(!_setlistLoaded) return;
+  if(JSON.stringify(setlistState())===_lastSyncedJSON) return;
+  setSyncNote('Saving…');
+  clearTimeout(_syncTimer);
+  _syncTimer=setTimeout(saveSharedSetlist, 600);
+}
+async function saveSharedSetlist(){
+  _syncTimer=null;
+  var st=setlistState(), j=JSON.stringify(st);
+  if(j===_lastSyncedJSON){ setSyncNote('Saved — shared with the team'); return; }
+  _syncing=true;
+  try{
+    var res=await fetch(SB_URL+'/rest/v1/worship_current_setlist?on_conflict=id',{
+      method:'POST',
+      headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=representation'},
+      body: JSON.stringify(Object.assign({id:1, updated_at:new Date().toISOString()}, st))
+    });
+    if(!res.ok) throw new Error(await res.text());
+    var rows=await res.json();
+    _lastSyncedJSON=j; _lastRemoteAt=rows[0] && rows[0].updated_at;
+    setSyncNote('Saved — shared with the team');
+  }catch(e){
+    setSyncNote('');
+    setStatus('Setlist not saved — check your connection. Your changes are still on this screen.','error');
+  }finally{ _syncing=false; }
+}
+function applyRemoteSetlist(row){
+  var byTitle={}; library.forEach(function(x){ if(x && x.title) byTitle[x.title]=x; });
+  setlist=(row.songs||[]).filter(function(x){return x && x.title;}).map(function(x){
+    var lib=byTitle[x.title];
+    return Object.assign({}, lib||{}, {title:x.title, section:x.section||(lib&&lib.section)||'Special', key:(x.key!==undefined&&x.key!=='')?x.key:((lib&&lib.key)||''), artist:x.artist||(lib&&lib.artist)||'', language:x.language||(lib&&lib.language)||'', lyrics:(lib&&lib.lyrics)||x.lyrics||''});
+  });
+  if(row.service_date) document.getElementById('svc-date').value=row.service_date;
+  document.getElementById('svc-title').value=row.service_title||'';
+  _lastSyncedJSON=JSON.stringify(setlistState());
+  _lastRemoteAt=row.updated_at;
+  renderSetlist();
+}
+async function fetchSharedSetlist(){
+  var res=await sbFetch('worship_current_setlist?id=eq.1&select=*');
+  if(!res.ok) throw new Error('load failed');
+  var rows=await res.json();
+  return rows[0]||null;
+}
+async function loadSharedSetlist(){
+  try{
+    var row=await fetchSharedSetlist();
+    if(row) applyRemoteSetlist(row);
+    else _lastSyncedJSON=JSON.stringify(setlistState());
+    _setlistLoaded=true;
+    setSyncNote(row?'Shared with the team — changes save automatically':'');
+  }catch(e){
+    _setlistLoaded=true; // still allow saving new changes
+    setStatus('Could not load the shared setlist — check your connection.','error');
+  }
+}
+async function pollSharedSetlist(){
+  if(!_setlistLoaded || _syncTimer || _syncing || document.visibilityState!=='visible') return;
+  try{
+    var row=await fetchSharedSetlist();
+    if(!row || row.updated_at===_lastRemoteAt) return;
+    // only take the other device's version if nothing is unsaved here
+    if(JSON.stringify(setlistState())!==_lastSyncedJSON || _syncTimer || _syncing) return;
+    applyRemoteSetlist(row);
+    setSyncNote('Updated from another device');
+  }catch(e){}
+}
+function startSetlistPolling(){
+  setInterval(pollSharedSetlist, 15000);
+  document.addEventListener('visibilitychange', function(){ if(document.visibilityState==='visible') pollSharedSetlist(); });
+}
+
+// ── APP SETTINGS (Google connection) ─────────────────────────────────────────
+var GOOGLE_SCRIPT_URL='';
+async function loadAppSettings(){
+  try{
+    var res=await sbFetch('app_settings?select=key,value');
+    if(!res.ok) return;
+    (await res.json()).forEach(function(r){ if(r.key==='google_script_url') GOOGLE_SCRIPT_URL=(r.value||'').trim(); });
+  }catch(e){}
+}
+async function callGoogle(action, payload){
+  if(!GOOGLE_SCRIPT_URL) throw {code:'not_setup'};
+  var res=await fetch(GOOGLE_SCRIPT_URL,{method:'POST', body: JSON.stringify(Object.assign({action:action}, payload||{}))});
+  var data=await res.json();
+  if(!data || !data.ok) throw {code:'google_error', message:(data&&data.error)||'Google request failed'};
+  return data;
+}
+function googleErrorText(e){
+  if(e && e.code==='not_setup') return 'Google Drive isn\'t connected to the app yet.';
+  if(e && e.message) return e.message;
+  return 'Could not reach Google — check your connection.';
+}
+function escHtml(t){ return String(t==null?'':t).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); }
+var _statusGen=0;
+function setStatusLink(msg, url, linkText){
+  _statusGen++;
+  var el=document.getElementById('status');
+  el.style.display=''; el.className='status success';
+  el.innerHTML=escHtml(msg)+' <a href="'+escHtml(url)+'" target="_blank" rel="noopener" style="color:inherit;font-weight:600;text-decoration:underline">'+escHtml(linkText||'Open')+'</a>';
+}
+
 function setStatus(msg,type){
   const el=document.getElementById('status');
-  if(!msg){ el.style.display='none'; return; }
+  if(!msg){ _statusGen++; el.style.display='none'; return; }
   el.style.display='';
+  var gen=++_statusGen;
   el.textContent=msg; el.className='status '+type;
-  if(type==='success') setTimeout(()=>{ el.style.display='none'; }, 4000);
+  if(type==='success') setTimeout(()=>{ if(gen===_statusGen) el.style.display='none'; }, 4000);
 }
 
 // ── HISTORICAL MEDLEYS from all your Drive docs ─────────────────────────────
@@ -994,7 +1119,7 @@ function renderMedley(filter){
       + '<p style="font-size:12px;color:#6b6b6b;font-family:system-ui,sans-serif;line-height:1.5;margin-bottom:8px">'+cp.note+'</p>'
       + '<div style="display:flex;gap:8px">'
       + '<button style="font-size:12px;padding:5px 12px;cursor:pointer" onclick="addCustomMedleyToSetlist('+ci+')">+ Add all to setlist</button>'
-      + '<button style="font-size:12px;padding:5px 12px;cursor:pointer;color:#791f1f;border-color:rgba(0,0,0,0.1)" onclick="deleteCustomMedley('+ci+')">Delete</button>'
+      + '<button style="font-size:12px;padding:5px 12px;cursor:pointer;color:#791f1f;border-color:rgba(0,0,0,0.1)" onclick="deleteCustomMedley('+ci+',this)">Delete</button>'
       + '</div>'
       + '</div>';
   }
@@ -1157,8 +1282,12 @@ async function saveCustomMedley(){
   } catch(e){ setStatus('Could not save medley — check connection.','error'); }
 }
 
-async function deleteCustomMedley(ci){
-  if(!confirm('Delete this custom medley?')) return;
+async function deleteCustomMedley(ci, btn){
+  if(btn && !btn.dataset.armed){
+    btn.dataset.armed='1'; btn.textContent='Tap again to delete';
+    setTimeout(function(){ if(btn){ delete btn.dataset.armed; btn.textContent='Delete'; } }, 3500);
+    return;
+  }
   var m = customMedleys[ci];
   if(m && m._sbId){
     try {
@@ -1387,7 +1516,7 @@ function getBadge(s){return `<span class="badge ${BADGE_CLASS[s]||'special'}">${
 // ── SETLIST ──────────────────────────────────────────────────────────────────
 function renderSetlist(){
   const el=document.getElementById('setlist-rows');
-  if(!setlist.length){el.innerHTML='<div class="empty">No songs yet — pick from library or search Drive</div>';return;}
+  if(!setlist.length){el.innerHTML='<div class="empty">No songs yet — pick from library or search Drive</div>';syncSetlistSoon();return;}
   const sections=['Praise/Avivamiento','Worship/Adoración','Offering/Ofrenda','Altar Call','Special','Extra'];
   el.innerHTML=setlist.map((s,i)=>`
     <div class="song-row" draggable="true" data-i="${i}" ondragstart="ds(event,${i})" ondragover="dv(event)" ondrop="dp(event,${i})">
@@ -1402,6 +1531,7 @@ function renderSetlist(){
       <button class="icon-btn danger" onclick="removeFromSetlist(${i})" title="Remove">✕</button>
     </div>`).join('');
   setTimeout(initTouchDrag, 30);
+  syncSetlistSoon();
 }
 
 function getSectionBg(s){
@@ -1468,7 +1598,15 @@ function initTouchDrag(){
 }
 
 function removeFromSetlist(i){setlist.splice(i,1);renderSetlist();}
-function clearSetlist(){setlist=[];renderSetlist();}
+function clearSetlist(btn){
+  if(btn && !btn.dataset.armed){
+    btn.dataset.armed='1'; btn.textContent='Tap again to clear for everyone';
+    setTimeout(function(){ if(btn){ delete btn.dataset.armed; btn.textContent='Clear'; } }, 3500);
+    return;
+  }
+  if(btn){ delete btn.dataset.armed; btn.textContent='Clear'; }
+  setlist=[]; renderSetlist(); setStatus('Setlist cleared.','info');
+}
 var _lastAddTime=0, _lastAddTitle='';
 function addToSetlist(song, section){
   const now=Date.now();
@@ -1688,80 +1826,70 @@ async function addTabSearch(){
 
 async function driveSearch(q, el, mode){
   try{
-    const res=await fetch("https://api.anthropic.com/v1/messages",{
-      method:"POST", headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({
-        model:"claude-sonnet-4-20250514", max_tokens:1000,
-        system:"Search Google Drive for worship song or setlist files matching the query. Include docs shared with the user. Return ONLY JSON: {\"found\":true,\"files\":[{\"id\":\"...\",\"name\":\"...\",\"owner\":\"...\",\"modified\":\"...\"}]}. No markdown, no preamble.",
-        messages:[{role:"user",content:`Search Drive for: "${q}"`}],
-        mcp_servers:[{type:"url",url:"https://drivemcp.googleapis.com/mcp/v1",name:"gdrive"}]
-      })
-    });
-    const data=await res.json();
-    const text=data.content.filter(b=>b.type==='text').map(b=>b.text).join('');
-    let result; try{result=JSON.parse(text.replace(/```json|```/g,'').trim());}catch{result={found:false};}
-    if(result.found && result.files && result.files.length){
-      el.innerHTML='<div style="margin-bottom:6px;font-size:12px;color:#9a9a9a">Found in your Drive:</div>'+
-        result.files.map(f=>`<div class="drive-row">
-          📄
-          <div style="flex:1;min-width:0">
-            <div style="font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${f.name}</div>
-            <div style="font-size:11px;color:#9a9a9a">${f.owner||''} ${f.modified?'· '+f.modified.split('T')[0]:''}</div>
-          </div>
-          <button onclick="importFile('${f.id}','${f.name.replace(/'/g,"\\'")}','${mode}')">Import</button>
-        </div>`).join('');
-    } else {
-      el.innerHTML='<span style="color:#6b6b6b">No matching files found. Try a different search term.</span>';
-    }
-  }catch{el.innerHTML='<span style="color:#791f1f">Search failed — check your Drive connection.</span>';}
+    const data=await callGoogle('search',{q:q});
+    const files=data.files||[];
+    if(!files.length){ el.innerHTML='<span style="color:#6b6b6b">No matching files found. Try a different search term.</span>'; return; }
+    window._driveResults=files;
+    el.innerHTML='<div style="margin-bottom:6px;font-size:12px;color:#9a9a9a">Found in your Drive:</div>'+
+      files.map(function(f,fi){ return '<div class="drive-row">📄'
+        +'<div style="flex:1;min-width:0"><div style="font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+escHtml(f.name)+'</div>'
+        +'<div style="font-size:11px;color:#9a9a9a">'+escHtml(f.owner||'')+' '+(f.modified?'· '+escHtml(String(f.modified).split('T')[0]):'')+'</div></div>'
+        +'<button onclick="importFile('+fi+',\''+mode+'\')">Import</button></div>'; }).join('');
+  }catch(e){ el.innerHTML='<span style="color:#791f1f">'+escHtml(googleErrorText(e))+'</span>'; }
 }
 
-async function importFile(fileId, fileName, mode){
+async function importFile(fi, mode){
+  const f=(window._driveResults||[])[fi]; if(!f) return;
   const section = mode==='setlist' ? document.getElementById('modal-section').value : 'Worship/Adoración';
   const targetEl = mode==='setlist' ? document.getElementById('modal-drive-results') : document.getElementById('add-drive-results');
   targetEl.innerHTML='<span class="spinner"></span> Loading lyrics…';
   try{
-    const res=await fetch("https://api.anthropic.com/v1/messages",{
-      method:"POST", headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({
-        model:"claude-sonnet-4-20250514", max_tokens:2000,
-        system:"Read the Google Drive file and return ONLY its plain text content. No preamble.",
-        messages:[{role:"user",content:`Read file ID: ${fileId}`}],
-        mcp_servers:[{type:"url",url:"https://drivemcp.googleapis.com/mcp/v1",name:"gdrive"}]
-      })
-    });
-    const data=await res.json();
-    const lyrics=data.content.filter(b=>b.type==='text').map(b=>b.text).join('\n');
-    const sbRes = await sbFetch('custom_songs', {
-      method:'POST',
-      body: JSON.stringify({title:fileName, section, artist:'', language:'Bilingual (EN/ES)', lyrics, added_date:new Date().toISOString().split('T')[0]})
-    });
-    const [saved] = sbRes.ok ? await sbRes.json() : [{}];
-    const song={title:fileName, section, artist:'', language:'Bilingual (EN/ES)', addedDate:new Date().toISOString().split('T')[0], lyrics, custom:true, _sbId:saved.id};
+    const data=await callGoogle('read',{id:f.id});
+    const lyrics=(data.text||'').trim();
+    const today=new Date().toISOString().split('T')[0];
+    const sbRes = await sbFetch('custom_songs', {method:'POST', body: JSON.stringify({title:f.name, section:section, artist:'', language:'Bilingual (EN/ES)', key:'', lyrics:lyrics, added_date:today})});
+    if(!sbRes.ok) throw {message:'Could not save the song — check your connection.'};
+    const saved=(await sbRes.json())[0]||{};
+    const song={title:f.name, section:section, artist:'', language:'Bilingual (EN/ES)', key:'', addedDate:today, lyrics:lyrics, custom:true, _sbId:saved.id};
     library.push(song); renderLibrary(); renderStats();
-    if(mode==='setlist'){addToSetlist(song,section);closeDriveModal();switchMain('setlist');}
-    else{targetEl.innerHTML=`<span style="color:#27500a">✓ "${fileName}" saved to library.</span>`;}
-    setStatus(`"${fileName}" imported.`, 'success');
-  }catch{targetEl.innerHTML='<span style="color:#791f1f">Could not load file.</span>';}
+    if(mode==='setlist'){ addToSetlist(song,section); closeDriveModal(); switchMain('setlist'); }
+    else { targetEl.innerHTML='<span style="color:#27500a">✓ "'+escHtml(f.name)+'" saved to library.</span>'; }
+    setStatus('"'+f.name+'" imported.', 'success');
+  }catch(e){ targetEl.innerHTML='<span style="color:#791f1f">'+escHtml(googleErrorText(e))+'</span>'; }
 }
 
 // ── ADD MANUALLY ─────────────────────────────────────────────────────────────
-async function formatLyrics(){
-  const raw=document.getElementById('new-lyrics').value.trim();
-  const title=document.getElementById('new-title').value.trim()||'Song';
+var SECTION_WORDS=[['coro final','CORO FINAL'],['pre-chorus','PRE-CHORUS'],['pre chorus','PRE-CHORUS'],['prechorus','PRE-CHORUS'],['pre-coro','PRECORO'],['pre coro','PRECORO'],['precoro','PRECORO'],['verse','VERSE'],['verso','VERSO'],['chorus','CHORUS'],['coro','CORO'],['bridge','BRIDGE'],['puente','PUENTE'],['tag','TAG'],['intro','INTRO'],['outro','OUTRO'],['interlude','INTERLUDE'],['interludio','INTERLUDIO'],['instrumental','INSTRUMENTAL'],['ending','ENDING'],['final','FINAL'],['refrain','REFRAIN'],['estribillo','ESTRIBILLO']];
+function sectionHeader(line){
+  var t=line.trim().replace(/^[\[\(]\s*/,'').replace(/\s*[\]\)]$/,'').replace(/\s*:$/,'').trim();
+  var low=t.toLowerCase();
+  for(var i=0;i<SECTION_WORDS.length;i++){
+    var w=SECTION_WORDS[i][0];
+    if(low===w) return SECTION_WORDS[i][1];
+    var m=low.match(new RegExp('^'+w.replace(/[-\s]/g,'[-\\s]?')+'\\s*(\\d+|[ivx]+)$'));
+    if(m) return SECTION_WORDS[i][1]+' '+m[1].toUpperCase();
+  }
+  return null;
+}
+function autoFormatText(raw){
+  var lines=raw.replace(/\r\n?/g,'\n').replace(/ /g,' ').split('\n');
+  var out=[];
+  lines.forEach(function(l){
+    var line=l.replace(/[ \t]+/g,' ').trim();
+    var h=line?sectionHeader(line):null;
+    if(h){ if(out.length && out[out.length-1]!=='') out.push(''); out.push(h); return; }
+    if(!line){ if(out.length && out[out.length-1]!=='') out.push(''); return; }
+    out.push(line);
+  });
+  while(out.length && out[out.length-1]==='') out.pop();
+  return out.join('\n');
+}
+function formatLyrics(){
+  const ta=document.getElementById('new-lyrics');
+  const raw=ta.value.trim();
   if(!raw){setStatus('Paste some lyrics first.','error');return;}
-  setStatus('Formatting…','info');
-  try{
-    const res=await fetch("https://api.anthropic.com/v1/messages",{
-      method:"POST", headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({model:"claude-sonnet-4-20250514", max_tokens:1000,
-        system:"Format raw worship song lyrics. Label sections consistently (VERSE, CHORUS, BRIDGE, CORO, PUENTE, TAG). Preserve bilingual content. Clean spacing. Return ONLY the formatted lyrics.",
-        messages:[{role:"user",content:`Format lyrics for "${title}":\n\n${raw}`}]})
-    });
-    const data=await res.json();
-    document.getElementById('new-lyrics').value=data.content.filter(b=>b.type==='text').map(b=>b.text).join('');
-    setStatus('Formatted — review and save.','success');
-  }catch{setStatus('Formatting failed.','error');}
+  ta.value=autoFormatText(raw);
+  setStatus('Formatted — section names cleaned up and spacing fixed. Review and save.','success');
 }
 
 async function saveNewSong(){
@@ -1788,6 +1916,25 @@ async function saveNewSong(){
   } catch(e){ setStatus('Could not save — check connection.','error'); }
 }
 
+// ── FILE DOWNLOADS ──
+async function offerDownload(filename, text, mime){
+  try{
+    if(window.claude && typeof window.claude.use==='function'){
+      const dl=await window.claude.use('downloads');
+      if(dl){
+        try{ await dl.save({filename:filename, data:text}); return 'saved'; }
+        catch(e){ if(e && (e.code==='declined' || e.code==='rate_limited')) return 'declined'; }
+      }
+    }
+  }catch(e){}
+  const blob=new Blob([text],{type:mime||'text/plain'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a'); a.href=url; a.download=filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+  return 'saved';
+}
+
 // ── EXPORT CUSTOM SONGS ──────────────────────────────────────────────────────
 function exportCustomSongs(){
   const customs = library.filter(s => s.custom);
@@ -1808,12 +1955,9 @@ function exportCustomSongs(){
     out += `Lyrics:\n${s.lyrics}\n`;
     out += '-'.repeat(60) + '\n\n';
   });
-  const blob = new Blob([out], {type:'text/plain'});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = `custom-songs-${new Date().toISOString().split('T')[0]}.txt`;
-  a.click(); URL.revokeObjectURL(url);
-  statusEl.textContent = `✓ Exported ${customs.length} song(s). Send the file to get them added!`;
+  offerDownload(`custom-songs-${new Date().toISOString().split('T')[0]}.txt`, out, 'text/plain').then(function(r){
+    statusEl.textContent = r==='saved' ? `✓ Exported ${customs.length} song(s).` : 'Download cancelled.';
+  });
 }
 
 function mergeCustomIntoMaster(){
@@ -1842,6 +1986,39 @@ function previewSetlist(){
   document.getElementById('preview-overlay').classList.add('open');
 }
 
+// ── SEND TO GOOGLE DOCS ──
+// Piano player names never leave the builder: strip them from keys and lyrics.
+var TEAM_NAMES=/\b(Ryan|Karen|Candy)\b/gi;
+function cleanKey(k){
+  if(!k) return '';
+  return String(k).replace(/\s*\([^)]*\)/g,'').replace(TEAM_NAMES,'').replace(/\s*\/\s*$/,'').replace(/^\s*\/\s*/,'').replace(/\s{2,}/g,' ').trim();
+}
+function scrubNames(text){
+  return String(text||'').replace(/^(\s*)(RYAN|KAREN|CANDY)\s*:/gim,'$1SOLO:').replace(TEAM_NAMES,'');
+}
+function currentLyrics(s){
+  var lib=library.find(function(x){ return x && x.title===s.title; });
+  return (lib && lib.lyrics) || s.lyrics || '';
+}
+async function sendSetlistToDocs(){
+  if(!setlist.length){ setStatus('Add songs to your setlist first.','error'); return; }
+  document.getElementById('preview-overlay').classList.remove('open');
+  const date=document.getElementById('svc-date').value;
+  const svcTitle=document.getElementById('svc-title').value||'Worship Service';
+  const dateStr=date?new Date(date+'T12:00:00').toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'}):'';
+  const order=['Praise/Avivamiento','Worship/Adoración','Offering/Ofrenda','Altar Call','Special','Extra'];
+  const names=order.concat(setlist.map(function(s){return s.section||'Special';}).filter(function(x,i,a){return order.indexOf(x)<0 && a.indexOf(x)===i;}));
+  const sections=names.map(function(n){
+    return {name:n, songs:setlist.filter(function(s){return (s.section||'Special')===n;}).map(function(s){ return {title:s.title, key:cleanKey(s.key), lyrics:scrubNames(currentLyrics(s))}; })};
+  }).filter(function(x){return x.songs.length;});
+  const docTitle=svcTitle+(date?' — '+date:'');
+  setStatus('Creating Google Doc…','info');
+  try{
+    const data=await callGoogle('createSetlistDoc',{title:docTitle, heading:svcTitle, dateStr:dateStr, sections:sections});
+    setStatusLink('Google Doc created.', data.url, 'Open the doc');
+  }catch(e){ setStatus(googleErrorText(e),'error'); }
+}
+
 // ── CREATE GOOGLE DOC ────────────────────────────────────────────────────────
 function copySetlist(){
   if(!setlist.length){setStatus('Add songs to your setlist first.','error');return;}
@@ -1867,14 +2044,14 @@ function copySetlist(){
   sectionOrder.forEach(sec=>{
     if(!grouped[sec]) return;
     text+=sec+':\n';
-    setlist.filter(s=>s.section===sec).forEach(s=>{ const ek=s.key?s.key.replace(/\s*\([^)]*\)/g,'').trim():''; text+='  • '+s.title+(ek?' [Key: '+ek+']':'')+'\n'; });
+    setlist.filter(s=>s.section===sec).forEach(s=>{ const ek=cleanKey(s.key); text+='  • '+s.title+(ek?' [Key: '+ek+']':'')+'\n'; });
     text+='\n';
   });
   // Any custom sections not in the standard order
   Object.keys(grouped).forEach(sec=>{
     if(!sectionOrder.includes(sec)){
       text+=sec+':\n';
-      setlist.filter(s=>s.section===sec).forEach(s=>{ const ek=s.key?s.key.replace(/\s*\([^)]*\)/g,'').trim():''; text+='  • '+s.title+(ek?' [Key: '+ek+']':'')+'\n'; });
+      setlist.filter(s=>s.section===sec).forEach(s=>{ const ek=cleanKey(s.key); text+='  • '+s.title+(ek?' [Key: '+ek+']':'')+'\n'; });
       text+='\n';
     }
   });
@@ -1890,8 +2067,8 @@ function copySetlist(){
     if(!songs.length) return;
     text+=sec.toUpperCase()+'\n'+'='.repeat(40)+'\n\n';
     songs.forEach(s=>{
-      const ek=s.key?s.key.replace(/\s*\([^)]*\)/g,'').trim():''; text+=s.title+(ek?'  ·  Key: '+ek:'')+'\n\n';
-      text+=(s.lyrics||'')+'\n\n';
+      const ek=cleanKey(s.key); text+=s.title+(ek?'  ·  Key: '+ek:'')+'\n\n';
+      text+=scrubNames(currentLyrics(s))+'\n\n';
       text+='-'.repeat(40)+'\n\n';
     });
     text+='\f'; // page break between sections
@@ -1921,28 +2098,16 @@ function copySetlist(){
 async function backupToDrive(){
   if(!library.length){setStatus('Library is empty.','error');return;}
   setStatus('Backing up to Drive…','info');
-  let content=`WORSHIP SONG LIBRARY — SANDY APOSTOLIC CHURCH\nDate: ${new Date().toLocaleDateString()}\nTotal: ${library.length} songs\n\n${'='.repeat(50)}\n\n`;
-  library.forEach(s=>{content+=`SONG: ${s.title}\nSECTION: ${s.section}\nARTIST: ${s.artist||'—'}\nLANGUAGE: ${s.language||'—'}\n\n${s.lyrics}\n\n${'─'.repeat(40)}\n\n`;});
+  let content='WORSHIP SONG LIBRARY — SANDY APOSTOLIC CHURCH\nDate: '+new Date().toLocaleDateString()+'\nTotal: '+library.length+' songs\n\n'+'='.repeat(50)+'\n\n';
+  library.forEach(function(s){ content+='SONG: '+s.title+'\nSECTION: '+s.section+'\nARTIST: '+(s.artist||'—')+'\nLANGUAGE: '+(s.language||'—')+'\n\n'+scrubNames(s.lyrics||'')+'\n\n'+'─'.repeat(40)+'\n\n'; });
   try{
-    const res=await fetch("https://api.anthropic.com/v1/messages",{
-      method:"POST", headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({model:"claude-sonnet-4-20250514", max_tokens:1000,
-        system:"Create a Google Doc. Return ONLY JSON: {\"success\":true,\"url\":\"...\"}",
-        messages:[{role:"user",content:`Create Google Doc titled "Worship Song Library — Backup ${new Date().toLocaleDateString()}" with:\n\n${content}`}],
-        mcp_servers:[{type:"url",url:"https://drivemcp.googleapis.com/mcp/v1",name:"gdrive"}]})
-    });
-    const data=await res.json();
-    const text=data.content.filter(b=>b.type==='text').map(b=>b.text).join('');
-    let result; try{result=JSON.parse(text.replace(/```json|```/g,'').trim());}catch{result={};}
-    if(result.url){setStatus(`Backup saved (${library.length} songs).`,'success'); window.open(result.url,'_blank');}
-    else setStatus('Backup saved — check your Drive.','info');
-  }catch{setStatus('Backup failed.','error');}
+    const data=await callGoogle('backup',{title:'Worship Song Library — Backup '+new Date().toLocaleDateString(), content:content});
+    setStatusLink('Backup saved ('+library.length+' songs).', data.url, 'Open backup');
+  }catch(e){ setStatus(googleErrorText(e),'error'); }
 }
 
 function exportJSON(){
-  const b=new Blob([JSON.stringify(library,null,2)],{type:'application/json'});
-  const u=URL.createObjectURL(b); const a=document.createElement('a');
-  a.href=u; a.download='worship-library.json'; a.click(); URL.revokeObjectURL(u);
+  offerDownload('worship-library-'+new Date().toISOString().split('T')[0]+'.json', JSON.stringify(library,null,2), 'application/json');
 }
 
 init();
