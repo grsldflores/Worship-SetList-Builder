@@ -127,9 +127,9 @@
   <!-- LIBRARY -->
   <div id="pane-library" style="display:none">
     <div class="stat-grid" id="lib-stats"></div>
-    <div class="search-row">
-      <input type="text" id="lib-search" placeholder="Search songs or artist…" oninput="renderLibrary()" style="flex:1" />
-      <select id="lib-filter" onchange="setLibFilter(this.value)" oninput="setLibFilter(this.value)" style="width:auto">
+    <div class="search-row" style="flex-wrap:wrap">
+      <input type="text" id="lib-search" placeholder="Search songs or artist…" oninput="renderLibrary()" style="flex:1 1 100%;min-width:0" />
+      <select id="lib-filter" onchange="setLibFilter(this.value)" oninput="setLibFilter(this.value)" style="flex:1 1 0;min-width:0">
         <option value="">All sections</option>
         <option value="bilingual">Bilingual</option>
         <option value="praise">Praise</option>
@@ -141,6 +141,7 @@
         <option value="Special">Special</option>
         <option value="Extra">Extra</option>
       </select>
+      <select id="lib-key-filter" onchange="renderLibrary()" oninput="renderLibrary()" style="flex:1 1 0;min-width:0" title="Filter by key"><option value="">All keys</option></select>
     </div>
     <div class="card" style="padding:0 1.25rem"><div id="lib-rows"></div></div>
     <div class="btn-row">
@@ -332,7 +333,7 @@
     <div class="lyrics-prev" id="view-lyrics-el" style="max-height:300px"></div>
     <div class="btn-row">
       <button class="primary" onclick="addToSetlistFromView()">+ Add to setlist</button>
-      <button onclick="editSongLyrics(viewIdx)">✏️ Edit lyrics</button>
+      <button onclick="editSongLyrics(viewIdx)">✏️ Edit</button>
       <button onclick="closeView()">Close</button>
     </div>
   </div>
@@ -1701,7 +1702,28 @@ function addToSetlist(song, section){
 
 // ── LIBRARY ──────────────────────────────────────────────────────────────────
 var _libFilter = '';
+// ── KEY FILTER ──
+// "C (Ryan) / Bb (Karen)" → ["C","Bb"]
+function keyNotes(k){
+  return parseKeys(k).map(function(x){ return x.replace(/\s*\([^)]*\)/g,'').trim(); }).filter(Boolean);
+}
+var KEY_ORDER=['C','C#','Db','D','D#','Eb','E','F','F#','Gb','G','G#','Ab','A','A#','Bb','B'];
+function keySortValue(k){
+  var m=String(k).match(/^([A-G][#b]?)(.*)$/); if(!m) return 999;
+  var i=KEY_ORDER.indexOf(m[1]); return (i<0?500:i*2)+(m[2]?1:0);  // major before minor
+}
+function populateKeyFilter(){
+  var sel=document.getElementById('lib-key-filter'); if(!sel) return;
+  var counts={}, none=0;
+  (library||[]).forEach(function(x){ if(!x||!x.title) return; var ks=keyNotes(x.key); if(!ks.length) none++; ks.forEach(function(k){ counts[k]=(counts[k]||0)+1; }); });
+  var keys=Object.keys(counts).sort(function(a,b){ return keySortValue(a)-keySortValue(b) || a.localeCompare(b); });
+  var cur=sel.value;
+  var html='<option value="">All keys</option>'+keys.map(function(k){ return '<option value="'+escHtml(k)+'">Key of '+escHtml(k)+' ('+counts[k]+')</option>'; }).join('')+'<option value="__none">No key yet ('+none+')</option>';
+  if(sel.innerHTML!==html){ sel.innerHTML=html; if(cur && (cur==='__none'||counts[cur])) sel.value=cur; }
+}
+
 function renderStats(){
+  populateKeyFilter();
   var _seenT = {}; var lib = ((library && library.length) ? library : MASTER_LIBRARY).filter(function(x){ if(!x || !x.title || _seenT[x.title]) return false; _seenT[x.title]=1; return true; });
   var praiseCount = 0, worshipCount = 0, bilingualCount = 0;
   for(var si=0; si<lib.length; si++){
@@ -1748,7 +1770,9 @@ function renderLibrary(){
     else if(sec==='praise') matchSec = s.section==='Praise/Avivamiento' || s.section==='Offering/Ofrenda';
     else if(sec==='worship') matchSec = s.section==='Worship/Adoración' || s.section==='Altar Call';
     else if(sec) matchSec = s.section===sec;
-    return matchQ && matchSec;
+    var kf = (document.getElementById('lib-key-filter')||{}).value || '';
+    var matchKey = !kf || (kf==='__none' ? !keyNotes(s.key).length : keyNotes(s.key).indexOf(kf)>=0);
+    return matchQ && matchSec && matchKey;
   });
   var seen = {};
   var deduped = filtered.filter(function(s){ if(seen[s.title]) return false; seen[s.title]=1; return true; });
