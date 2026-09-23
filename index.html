@@ -1287,11 +1287,21 @@ function renderEventSuggestions(){
   desc.innerHTML = `<strong>${event.label}</strong><br><br>${event.description}<br><br><em>💡 ${event.tip}</em>`;
   wrap.style.display = 'block';
 
-  // Use library if populated, fall back to MASTER_LIBRARY so events always work
-  const src = (library && library.length) ? library : MASTER_LIBRARY;
+  // Always search both library (custom songs) and MASTER_LIBRARY combined
+  const masterTitles = new Set(MASTER_LIBRARY.map(s => s.title));
+  const customOnly = (library && library.length) ? library.filter(s => !masterTitles.has(s.title)) : [];
+  const src = [...MASTER_LIBRARY.map(m => {
+    // If library has an updated version of this song, use it
+    const custom = library && library.find(l => l.title === m.title);
+    return custom || m;
+  }), ...customOnly];
 
   const suggested = event.songs
-    .map(title => src.find(s => s.title.toLowerCase() === title.toLowerCase()))
+    .map(title => {
+      const lower = title.toLowerCase();
+      return src.find(s => s.title.toLowerCase() === lower) ||
+             src.find(s => s.title.toLowerCase().includes(lower) || lower.includes(s.title.toLowerCase()));
+    })
     .filter(Boolean);
 
   const keywordMatches = src.filter(s => {
