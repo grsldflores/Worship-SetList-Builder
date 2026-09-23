@@ -759,7 +759,6 @@ Profundo es tu amor dificil de entender
 Y siento tu paz irresistible`},
   {title:"Llenname Dios",section:"Altar Call",artist:"",language:"Spanish only",lyrics:`Llenname Dios con tu presencia\nLlenname Dios con tu poder\nLlenname Dios con tu amor\nLlenname Dios`},
   {title:"Quita Todo De Mi",section:"Altar Call",artist:"",language:"Spanish only",lyrics:`Quita todo de mi\nLo que te ofenda\nQuita todo de mi\nLo que no te agrada\n\nPurificame Senor\nLimpiame Senor\nSantificame Senor\nHaz tu obra en mi`},
-,
   {title:"Remolineando",section:"Praise/Avivamiento",artist:"",language:"Spanish only",lyrics:`VERSO 1\nHay Muchas Formas De Alabar Tu Nombre\nY De Exaltarte, Oh Jehova\nHay Muchas Formas De Glorificarte\nPero Ahora Lo Hare Asi\n\nVERSO 2\nSaco Mi Vida Del Anonimato\nMe Dio Corona Y Un Vestido Real\nAsi Es Jehova, Que Exalta Al Pequeno\nPor Causa De El Yo Me Hare Mas Vil\n\nCORO\n//Remolineando, Remolineando\nCelebrare A Jehova\nRemolineando, Remolineando\nMe Hare Mas Vil Por Causa De Jehova //`}
 ,
   {title:"Vine A Adorar A Dios",section:"Praise/Avivamiento",artist:"",language:"Bilingual (EN/ES)",lyrics:`//Vine a adorar a Dios\nvine a adorar a Dios\nVine a adorar Su Nombre\nVine a adorar a Dios//\n\n//El vino a mi vida\nun dia muy especial\ncambio mi corazon\nMe mostro un camino mejor\ny esta es la razon\npor la que digo que:\nVine a adorar a Dios//\n\nI just came to praise the Lord\nI just came to praise the Lord\nI just came to praise his Holy name\nI just came to praise the Lord\n\nHe came into my life one very special day\nHe came into my heart, and showed me a better way\nHe said He'd never leave\nI just came to praise the Lord`},
@@ -1478,17 +1477,28 @@ function addToSetlist(song, section){
 // ── LIBRARY ──────────────────────────────────────────────────────────────────
 var _libFilter = '';
 function renderStats(){
-  const lib = (library && library.length) ? library : MASTER_LIBRARY;
-  const praiseCount = lib.filter(s=>s.section==='Praise/Avivamiento'||s.section==='Offering/Ofrenda').length;
-  const worshipCount = lib.filter(s=>s.section==='Worship/Adoración'||s.section==='Altar Call').length;
-  const bilingualCount = lib.filter(s=>s.language&&s.language.includes('Bilingual')).length;
-  const statsEl = document.getElementById('lib-stats');
+  var lib = (library && library.length) ? library : MASTER_LIBRARY;
+  var praiseCount = 0, worshipCount = 0, bilingualCount = 0;
+  for(var si=0; si<lib.length; si++){
+    var s = lib[si];
+    if(s.section==='Praise/Avivamiento'||s.section==='Offering/Ofrenda') praiseCount++;
+    if(s.section==='Worship/Adoración'||s.section==='Altar Call') worshipCount++;
+    if(s.language && s.language.indexOf('Bilingual')>=0) bilingualCount++;
+  }
+  var statsEl = document.getElementById('lib-stats');
   if(!statsEl) return;
-  statsEl.innerHTML=`
-    <div class="stat" onclick="setLibFilter('')" style="cursor:pointer;${_libFilter===''?'background:#eeedfe;outline:2px solid #4a3fa0':''}" title="Show all"><div class="stat-n">${lib.length}</div><div class="stat-l">All Songs</div></div>
-    <div class="stat" onclick="setLibFilter('bilingual')" style="cursor:pointer;${_libFilter==='bilingual'?'background:#eeedfe;outline:2px solid #4a3fa0':''}" title="Filter bilingual"><div class="stat-n">${bilingualCount}</div><div class="stat-l">Bilingual</div></div>
-    <div class="stat" onclick="setLibFilter('praise')" style="cursor:pointer;${_libFilter==='praise'?'background:#eeedfe;outline:2px solid #4a3fa0':''}" title="Filter Praise"><div class="stat-n">${praiseCount}</div><div class="stat-l">Praise</div></div>
-    <div class="stat" onclick="setLibFilter('worship')" style="cursor:pointer;${_libFilter==='worship'?'background:#eeedfe;outline:2px solid #4a3fa0':''}" title="Filter Worship"><div class="stat-n">${worshipCount}</div><div class="stat-l">Worship</div></div>`;
+  function statCard(label, count, filterVal){
+    var active = _libFilter===filterVal;
+    var style = 'cursor:pointer;' + (active ? 'background:#eeedfe;outline:2px solid #4a3fa0' : '');
+    return '<div class="stat" onclick="setLibFilter(\'' + filterVal + '\')" style="' + style + '">'
+      + '<div class="stat-n">' + count + '</div>'
+      + '<div class="stat-l">' + label + '</div>'
+      + '</div>';
+  }
+  statsEl.innerHTML = statCard('All Songs', lib.length, '')
+    + statCard('Bilingual', bilingualCount, 'bilingual')
+    + statCard('Praise', praiseCount, 'praise')
+    + statCard('Worship', worshipCount, 'worship');
 }
 
 function setLibFilter(val){
