@@ -1478,11 +1478,14 @@ function addToSetlist(song, section){
 // ── LIBRARY ──────────────────────────────────────────────────────────────────
 var _libFilter = '';
 function renderStats(){
-  const praiseCount = library.filter(s=>s.section==='Praise/Avivamiento'||s.section==='Offering/Ofrenda').length;
-  const worshipCount = library.filter(s=>s.section==='Worship/Adoración'||s.section==='Altar Call').length;
-  const bilingualCount = library.filter(s=>s.language&&s.language.includes('Bilingual')).length;
-  document.getElementById('lib-stats').innerHTML=`
-    <div class="stat" onclick="setLibFilter('')" style="cursor:pointer;${_libFilter===''?'background:#eeedfe;outline:2px solid #4a3fa0':''}" title="Show all"><div class="stat-n">${library.length}</div><div class="stat-l">All Songs</div></div>
+  const lib = (library && library.length) ? library : MASTER_LIBRARY;
+  const praiseCount = lib.filter(s=>s.section==='Praise/Avivamiento'||s.section==='Offering/Ofrenda').length;
+  const worshipCount = lib.filter(s=>s.section==='Worship/Adoración'||s.section==='Altar Call').length;
+  const bilingualCount = lib.filter(s=>s.language&&s.language.includes('Bilingual')).length;
+  const statsEl = document.getElementById('lib-stats');
+  if(!statsEl) return;
+  statsEl.innerHTML=`
+    <div class="stat" onclick="setLibFilter('')" style="cursor:pointer;${_libFilter===''?'background:#eeedfe;outline:2px solid #4a3fa0':''}" title="Show all"><div class="stat-n">${lib.length}</div><div class="stat-l">All Songs</div></div>
     <div class="stat" onclick="setLibFilter('bilingual')" style="cursor:pointer;${_libFilter==='bilingual'?'background:#eeedfe;outline:2px solid #4a3fa0':''}" title="Filter bilingual"><div class="stat-n">${bilingualCount}</div><div class="stat-l">Bilingual</div></div>
     <div class="stat" onclick="setLibFilter('praise')" style="cursor:pointer;${_libFilter==='praise'?'background:#eeedfe;outline:2px solid #4a3fa0':''}" title="Filter Praise"><div class="stat-n">${praiseCount}</div><div class="stat-l">Praise</div></div>
     <div class="stat" onclick="setLibFilter('worship')" style="cursor:pointer;${_libFilter==='worship'?'background:#eeedfe;outline:2px solid #4a3fa0':''}" title="Filter Worship"><div class="stat-n">${worshipCount}</div><div class="stat-l">Worship</div></div>`;
@@ -1497,9 +1500,11 @@ function setLibFilter(val){
 }
 
 function renderLibrary(){
+  try {
   const src = (library && library.length) ? library : MASTER_LIBRARY;
-  const q=(document.getElementById('lib-search').value||'').toLowerCase().trim();
-  const sec = _libFilter;
+  const searchEl = document.getElementById('lib-search');
+  const q=(searchEl ? searchEl.value||'' : '').toLowerCase().trim();
+  const sec = _libFilter||'';
   const filtered=src.filter(s=>{
     const matchQ = !q || s.title.toLowerCase().includes(q) || (s.artist||'').toLowerCase().includes(q);
     let matchSec = true;
@@ -1526,6 +1531,7 @@ function renderLibrary(){
       <button class="icon-btn danger" id="del-btn-${i}" onclick="confirmDeleteSong(${i}, this)" title="Delete"><svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg></button>
     </div>`;
   }).join('');
+  } catch(e){ console.error('renderLibrary error:',e); }
 }
 
 var _deletePending = {};
