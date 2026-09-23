@@ -1518,7 +1518,8 @@ function renderLibrary(){
   const seen=new Set();
   const deduped=filtered.filter(s=>{ if(seen.has(s.title)) return false; seen.add(s.title); return true; });
   const el=document.getElementById('lib-rows');
-  if(!deduped.length){el.innerHTML=`<div class="empty">${src.length===0?'Library empty.':'No matches.'}</div>`;return;}
+  if(!el) return;
+  if(!deduped.length){el.innerHTML='<div class="empty">'+(src.length===0?'Library empty ('+src.length+' src, '+library.length+' lib).':'No matches ('+filtered.length+' filtered, sec='+sec+', q='+q+')')+'</div>';return;}
   el.innerHTML=deduped.map(s=>{
     const i=library.findIndex(x=>x.title===s.title);
     return `<div class="song-row">
