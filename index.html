@@ -151,7 +151,7 @@
     </div>
     <details class="card" id="deleted-card" style="margin-top:12px;padding:12px 1.25rem">
       <summary style="cursor:pointer;font-size:13px;font-family:system-ui,sans-serif;color:var(--text2);font-weight:500">🗑 Recently deleted <span id="deleted-count"></span></summary>
-      <div style="font-size:12px;color:var(--text3);font-family:system-ui,sans-serif;margin:8px 0 4px">Deleted songs stay here so you can bring them back. Tap Restore to put a song back in the library.</div>
+      <div style="font-size:12px;color:var(--text3);font-family:system-ui,sans-serif;margin:8px 0 4px">Deleted songs stay here so you can bring them back. <b>Restore</b> puts a song back in the library. <b>Delete forever</b> removes it for good (use it for duplicates).</div>
       <div id="deleted-rows"></div>
     </details>
   </div>
@@ -867,12 +867,12 @@ function mapSbRow(r){
 var deletedSongs=[];
 function collectDeleted(rows){
   deletedSongs=(rows||[]).filter(function(r){
-    if(!r || !r.hidden) return false;
+    if(!r || !r.hidden || r.purged) return false;
     if(!r.master_title && String(r.title||'').indexOf('[restored] ')===0) return false; // already brought back
     return true;
   }).map(function(r){
     var marker = !!r.master_title && !String(r.lyrics||'').trim(); // built-in song that was only hidden
-    return {id:r.id, title:r.master_title||r.title, section:r.section||'', when:r.deleted_at||r.created_at, marker:marker};
+    return {id:r.id, title:r.master_title||r.title, section:r.section||'', when:r.deleted_at||r.created_at, marker:marker, builtin:!!r.master_title};
   }).sort(function(a,b){ return String(b.when).localeCompare(String(a.when)); });
   renderDeleted();
 }
@@ -885,9 +885,32 @@ function renderDeleted(){
     return '<div class="song-row"><div style="flex:1;min-width:0"><div class="song-title">'+escHtml(d.title)+'</div>'
       +'<div style="margin-top:3px;display:flex;gap:6px;align-items:center;flex-wrap:wrap">'+(d.section?getBadge(d.section):'')
       +'<span style="font-size:11px;color:var(--text3);font-family:system-ui,sans-serif">Deleted '+escHtml(when)+'</span></div></div>'
-      +'<button style="font-size:12px;padding:4px 12px" onclick="restoreDeleted('+di+',this)">Restore</button></div>';
+      +'<div style="display:flex;gap:6px;flex-shrink:0"><button style="font-size:12px;padding:4px 12px" onclick="restoreDeleted('+di+',this)">Restore</button>'
+      +'<button style="font-size:12px;padding:4px 10px;color:#791f1f" onclick="purgeDeleted('+di+',this)">Delete forever</button></div></div>';
   }).join('');
 }
+async function purgeDeleted(di, btn){
+  var d=deletedSongs[di]; if(!d) return;
+  if(btn && !btn.dataset.armed){
+    btn.dataset.armed='1'; btn.textContent='Tap again — can\'t undo';
+    setTimeout(function(){ if(btn){ delete btn.dataset.armed; btn.textContent='Delete forever'; } }, 3500);
+    return;
+  }
+  if(btn){ btn.disabled=true; btn.textContent='Deleting…'; }
+  try{
+    // Songs you added: erased. Built-in songs live in the app itself, so they stay hidden for good instead.
+    var res = d.builtin
+      ? await sbFetch('custom_songs?id=eq.'+d.id, {method:'PATCH', body: JSON.stringify({purged:true})})
+      : await sbFetch('custom_songs?id=eq.'+d.id, {method:'DELETE'});
+    if(!res.ok) throw new Error(await res.text());
+    deletedSongs.splice(di,1); renderDeleted();
+    setStatus('"'+d.title+'" deleted for good.','info');
+  }catch(e){
+    if(btn){ btn.disabled=false; delete btn.dataset.armed; btn.textContent='Delete forever'; }
+    setStatus('Could not delete "'+d.title+'" — check your connection.','error');
+  }
+}
+
 async function reloadLibraryFromServer(){
   const res = await sbFetch('custom_songs?select=*&order=created_at.asc');
   if(!res.ok) throw new Error('reload failed');
@@ -1896,7 +1919,7 @@ async function deleteSong(i){
     if(!res.ok) throw new Error(await res.text());
     if(newRow){
       var m = !!newRow.master_title && !String(newRow.lyrics||'').trim();
-      deletedSongs.unshift({id:newRow.id, title:newRow.master_title||newRow.title, section:newRow.section||song.section, when:now, marker:m});
+      deletedSongs.unshift({id:newRow.id, title:newRow.master_title||newRow.title, section:newRow.section||song.section, when:now, marker:m, builtin:!!newRow.master_title});
       renderDeleted();
     }
   } catch(e){
