@@ -116,7 +116,7 @@
   <div id="pane-library" style="display:none">
     <div class="stat-grid" id="lib-stats"></div>
     <div class="search-row">
-      <input type="text" id="lib-search" placeholder="Search songs, lyrics, artist…" oninput="renderLibrary()" onkeyup="renderLibrary()" onchange="renderLibrary()" style="flex:1" />
+      <input type="text" id="lib-search" placeholder="Search songs or artist…" oninput="renderLibrary()" onkeyup="renderLibrary()" onchange="renderLibrary()" style="flex:1" />
       <select id="lib-filter" onchange="setLibFilter(this.value)" oninput="setLibFilter(this.value)" style="width:auto">
         <option value="">All sections</option>
         <option value="bilingual">Bilingual</option>
@@ -836,6 +836,31 @@ function sbFetch(path, opts){
   return fetch(SB_URL+'/rest/v1/'+path, Object.assign({headers:headers}, opts));
 }
 
+function mapSbRow(r){
+  return {title:r.title, section:r.section, artist:r.artist||'',
+    language:r.language||'Bilingual (EN/ES)', key:r.key||'', lyrics:r.lyrics||'',
+    addedDate:r.added_date||'2026-05-29', custom:true, _sbId:r.id,
+    _masterTitle:r.master_title||null, _hidden:!!r.hidden};
+}
+// Merge saved rows over the built-in list: a row that edits a built-in song replaces it,
+// a hidden row removes it, and everything else is added at the end.
+function mergeLibrary(rows){
+  var master = MASTER_LIBRARY.filter(function(x){return x && x.title;}).map(function(x){ return Object.assign({}, x, {addedDate: x.addedDate||'2026-05-29'}); });
+  var byTitle = {};
+  master.forEach(function(m, idx){ byTitle[m.title] = idx; });
+  var extras = [];
+  rows.map(mapSbRow).forEach(function(c){
+    var target = c._masterTitle || c.title;
+    if(byTitle.hasOwnProperty(target) && master[byTitle[target]] && !master[byTitle[target]].custom){
+      c._masterTitle = target;
+      master[byTitle[target]] = c;
+    } else if(!c._hidden){
+      extras.push(c);
+    }
+  });
+  return master.filter(function(x){ return !x._hidden; }).concat(extras);
+}
+
 // ── INIT ─────────────────────────────────────────────────────────────────────
 async function init(){
   document.getElementById('svc-date').value = new Date().toISOString().split('T')[0];
@@ -847,16 +872,11 @@ async function init(){
   try {
     const res = await sbFetch('custom_songs?select=*&order=created_at.asc');
     if(res.ok){
-      const customSongs = (await res.json()).map(r=>({
-        title:r.title, section:r.section, artist:r.artist||'',
-        language:r.language||'Bilingual (EN/ES)', key:r.key||'', lyrics:r.lyrics||'',
-        addedDate:r.added_date||'2026-05-29', custom:true, _sbId:r.id
-      }));
-      if(customSongs.length){
-        library = [...library, ...customSongs];
-        renderLibrary();
-        renderStats();
-      }
+      library = mergeLibrary(await res.json());
+      renderLibrary();
+      renderStats();
+    } else {
+      setStatus('Could not load saved songs — edits may not show.','error');
     }
   } catch(e) {
     // Custom songs unavailable — master library still loaded, no need to alarm user
@@ -868,16 +888,10 @@ async function init(){
 
 async function resetLibrary(){
   if(!confirm('Reload master library? Your custom-added songs will still be here.')) return;
-  const master = MASTER_LIBRARY.map(s => ({...s, addedDate: s.addedDate||'2026-05-29'}));
   try {
     const res = await sbFetch('custom_songs?select=*&order=created_at.asc');
-    const customSongs = res.ok ? (await res.json()).map(r=>({
-      title:r.title, section:r.section, artist:r.artist||'',
-      language:r.language||'Bilingual (EN/ES)', key:r.key||'', lyrics:r.lyrics||'',
-      addedDate:r.added_date||'2026-05-29', custom:true, _sbId:r.id
-    })) : [];
-    library = [...master, ...customSongs];
-  } catch(e){ library = master; }
+    library = mergeLibrary(res.ok ? await res.json() : []);
+  } catch(e){ library = mergeLibrary([]); }
   renderLibrary(); renderStats();
   setStatus(`Library reloaded — ${library.length} songs.`, 'success');
 }
@@ -1477,7 +1491,7 @@ function addToSetlist(song, section){
 // ── LIBRARY ──────────────────────────────────────────────────────────────────
 var _libFilter = '';
 function renderStats(){
-  var lib = (library && library.length) ? library : MASTER_LIBRARY;
+  var _seenT = {}; var lib = ((library && library.length) ? library : MASTER_LIBRARY).filter(function(x){ if(!x || !x.title || _seenT[x.title]) return false; _seenT[x.title]=1; return true; });
   var praiseCount = 0, worshipCount = 0, bilingualCount = 0;
   for(var si=0; si<lib.length; si++){
     var s = lib[si];
@@ -1510,7 +1524,7 @@ function setLibFilter(val){
 }
 
 function renderLibrary(){
-  var src = (library && library.length) ? library : MASTER_LIBRARY;
+  var src = ((library && library.length) ? library : MASTER_LIBRARY).filter(function(x){return x && x.title;});
   var searchEl = document.getElementById('lib-search');
   var q = (searchEl ? searchEl.value||'' : '').toLowerCase().trim();
   var sec = _libFilter||'';
@@ -1532,7 +1546,7 @@ function renderLibrary(){
   for(var di=0; di<deduped.length; di++){
     var s = deduped[di];
     var i = -1;
-    for(var li=0; li<library.length; li++){ if(library[li].title===s.title){ i=li; break; } }
+    for(var li=0; li<library.length; li++){ if(library[li] && library[li].title===s.title){ i=li; break; } }
     var keyBadge = s.key ? '<span class="badge special" style="background:#f0f5ff;color:#2d4fa0;font-weight:500">&#9834; '+s.key+'</span>' : '';
     var artistBadge = s.artist ? '<span class="badge special">'+s.artist+'</span>' : '';
     rows += '<div class="song-row">'
@@ -1578,8 +1592,21 @@ async function deleteSong(i){
   const song=library[i];
   const t=song.title;
   // Remove from Supabase if it's a custom song
-  if(song.custom && song._sbId){
-    try { await sbFetch('custom_songs?id=eq.'+song._sbId, {method:'DELETE'}); } catch(e){}
+  try {
+    var res;
+    if(song.custom && song._sbId && song._masterTitle){
+      // Edited built-in song: keep the row but mark it hidden so the original doesn't come back
+      res = await sbFetch('custom_songs?id=eq.'+song._sbId, {method:'PATCH', body: JSON.stringify({hidden:true})});
+    } else if(song.custom && song._sbId){
+      res = await sbFetch('custom_songs?id=eq.'+song._sbId, {method:'DELETE'});
+    } else {
+      // Untouched built-in song: save a hidden marker
+      res = await sbFetch('custom_songs', {method:'POST', body: JSON.stringify({title:song.title, section:song.section, master_title:song.title, hidden:true, lyrics:''})});
+    }
+    if(!res.ok) throw new Error(await res.text());
+  } catch(e){
+    setStatus('Could not delete "'+t+'" — check connection and try again.','error');
+    return;
   }
   library.splice(i,1);
   renderLibrary(); renderStats();
@@ -1612,23 +1639,35 @@ function openEdit(i){
 function closeEdit(){document.getElementById('edit-overlay').classList.remove('open');}
 async function saveEdit(){
   const s=library[editIdx];
-  s.title=document.getElementById('edit-title').value.trim()||s.title;
-  s.section=document.getElementById('edit-section').value;
-  s.artist=document.getElementById('edit-artist').value.trim();
-  s.language=document.getElementById('edit-lang').value;
-  s.key=document.getElementById('edit-key').value.trim();
-  s.lyrics=document.getElementById('edit-lyrics').value;
-  // Sync to Supabase if it's a custom song
-  if(s.custom && s._sbId){
-    try {
-      await sbFetch('custom_songs?id=eq.'+s._sbId, {
-        method:'PATCH',
-        body: JSON.stringify({title:s.title, section:s.section, artist:s.artist, language:s.language, key:s.key, lyrics:s.lyrics})
-      });
-    } catch(e){}
+  const upd = {
+    title: document.getElementById('edit-title').value.trim()||s.title,
+    section: document.getElementById('edit-section').value,
+    artist: document.getElementById('edit-artist').value.trim(),
+    language: document.getElementById('edit-lang').value,
+    key: document.getElementById('edit-key').value.trim(),
+    lyrics: document.getElementById('edit-lyrics').value
+  };
+  setStatus('Saving…','info');
+  try {
+    let res;
+    if(s.custom && s._sbId){
+      res = await sbFetch('custom_songs?id=eq.'+s._sbId, {method:'PATCH', body: JSON.stringify(upd)});
+    } else {
+      // Built-in song: save the edited copy, linked to the original title so it replaces it on reload
+      res = await sbFetch('custom_songs', {method:'POST', body: JSON.stringify(Object.assign({}, upd, {master_title: s.title, added_date: new Date().toISOString().split('T')[0]}))});
+    }
+    if(!res.ok) throw new Error(await res.text());
+    const rows = await res.json();
+    if(!(s.custom && s._sbId)){
+      s._masterTitle = s.title; s.custom = true; s._sbId = rows[0] && rows[0].id;
+    }
+    Object.assign(s, upd);
+  } catch(e){
+    setStatus('Could not save changes — check connection and try again.','error');
+    return;
   }
   renderLibrary(); renderStats(); closeEdit();
-  setStatus(`"${s.title}" updated.`, 'success');
+  setStatus('"'+s.title+'" updated.', 'success');
 }
 
 // ── DRIVE SEARCH MODAL (from Setlist tab) ────────────────────────────────────
