@@ -316,6 +316,15 @@
 </div>
 
 <!-- VIEW MODAL -->
+<div class="overlay" id="key-overlay">
+  <div class="modal" style="max-width:360px">
+    <h3 style="margin-bottom:4px">Which key?</h3>
+    <div id="key-song-title" style="font-size:13px;color:var(--text2);font-family:system-ui,sans-serif;margin-bottom:12px"></div>
+    <div id="key-options" style="display:flex;flex-direction:column;gap:8px"></div>
+    <div class="btn-row" style="margin-top:12px"><button onclick="closeKeyPicker()">Cancel</button></div>
+  </div>
+</div>
+
 <div class="overlay" id="view-overlay">
   <div class="modal">
     <h3 id="view-title-el"></h3>
@@ -1472,7 +1481,7 @@ function renderEventSuggestions(){
         <div class="song-title">${s.title}${!isCurated?' <span style="font-size:10px;color:var(--text3);font-family:system-ui,sans-serif">(keyword match)</span>':''}</div>
         <div style="margin-top:3px">${getBadge(s.section)}</div>
       </div>
-      <button style="font-size:12px;padding:4px 10px" onclick="addToSetlist(eventSongCache[${si}]); flashAdded(this)">+ Add</button>
+      <button style="font-size:12px;padding:4px 10px" onclick="if(addToSetlist(eventSongCache[${si}])===true)flashAdded(this)">+ Add</button>
     </div>`;
   }).join('');
   window.eventSongCache = all;
@@ -1545,7 +1554,8 @@ function renderSetlist(){
       </select>
       <div style="flex:1;min-width:0;overflow:hidden">
         <div class="song-title" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${s.title}</div>
-        ${s.key?`<div style="font-size:11px;color:#2d4fa0;font-family:system-ui,sans-serif;margin-top:1px">♪ ${s.key}</div>`:''}
+        ${s.key?`<div onclick="pickSetlistKey(${i})" title="Change key" style="font-size:11px;color:#2d4fa0;font-family:system-ui,sans-serif;margin-top:1px;cursor:pointer">♪ ${escHtml(s.key)}${parseKeys((findLibrarySong(s.title)||{}).key).length>1?' ▾':''}</div>`
+          :(parseKeys((findLibrarySong(s.title)||{}).key).length?`<div onclick="pickSetlistKey(${i})" style="font-size:11px;color:var(--text3);font-family:system-ui,sans-serif;margin-top:1px;cursor:pointer">♪ choose key</div>`:'')}
       </div>
       <button class="icon-btn danger" onclick="removeFromSetlist(${i})" title="Remove">✕</button>
     </div>`).join('');
@@ -1636,14 +1646,57 @@ function updateSetlistTabCount(){
   var t=document.querySelector('#main-tabs .tab'); if(!t) return;
   t.textContent = setlist.length ? 'Setlist ('+setlist.length+')' : 'Setlist';
 }
+// ── KEYS: a song can list several, e.g. "G (Ryan) / Bb (Karen)" ──
+function parseKeys(k){
+  k=String(k||'').trim(); if(!k) return [];
+  var withNames=k.match(/[^\/,;|()]+\([^)]*\)/g);
+  var list = (withNames && withNames.length>1) ? withNames : k.split(/\s*[,;|]\s*|\s+\/\s+/);
+  return list.map(function(x){return x.trim();}).filter(Boolean);
+}
+var _keyPickCallback=null;
+function openKeyPicker(title, keys, current, cb){
+  _keyPickCallback=cb;
+  document.getElementById('key-song-title').textContent=title;
+  var box=document.getElementById('key-options');
+  box.innerHTML='';
+  keys.concat(['']).forEach(function(k){
+    var b=document.createElement('button');
+    b.textContent = k ? '♪ '+k : 'No key (leave blank)';
+    b.style.cssText='text-align:left;width:100%;padding:10px 12px;'+(k===current?'border:2px solid #4a3fa0;background:#eeedfe;':'')+(k?'':'color:var(--text2);');
+    b.onclick=function(){ var f=_keyPickCallback; closeKeyPicker(); if(f) f(k); };
+    box.appendChild(b);
+  });
+  document.getElementById('key-overlay').classList.add('open');
+}
+function closeKeyPicker(){ _keyPickCallback=null; document.getElementById('key-overlay').classList.remove('open'); }
+function pickSetlistKey(i){
+  var s=setlist[i]; if(!s) return;
+  var lib=findLibrarySong(s.title);
+  var keys=parseKeys((lib&&lib.key)||s.key);
+  if(s.key && keys.indexOf(s.key)<0) keys.unshift(s.key);
+  if(!keys.length){ setStatus('No keys saved for this song — add one in the Library with ✏️ Edit.','info'); return; }
+  openKeyPicker(s.title, keys, s.key||'', function(k){ setlist[i].key=k; renderSetlist(); });
+}
+
 var _lastAddTime=0, _lastAddTitle='';
+// returns true when added right away, 'ask' when the key picker opened first
 function addToSetlist(song, section){
   const now=Date.now();
-  if(song.title===_lastAddTitle && now-_lastAddTime<600) return; // block double-tap on mobile
+  if(song.title===_lastAddTitle && now-_lastAddTime<600) return false; // block double-tap on mobile
   _lastAddTime=now; _lastAddTitle=song.title;
+  var keys=parseKeys(song.key);
+  if(keys.length>1){
+    openKeyPicker(song.title, keys, '', function(k){
+      setlist.push({...song, section: section||song.section, key:k});
+      renderSetlist();
+      setStatus(`"${song.title}" added to setlist`+(k?` — key ${k}.`:' (no key).'), 'success');
+    });
+    return 'ask';
+  }
   setlist.push({...song, section: section||song.section});
   renderSetlist();
   setStatus(`"${song.title}" added to setlist.`, 'success');
+  return true;
 }
 
 // ── LIBRARY ──────────────────────────────────────────────────────────────────
@@ -1715,7 +1768,7 @@ function renderLibrary(){
       + '<div style="margin-top:3px;display:flex;gap:4px;flex-wrap:wrap">'+getBadge(s.section)+artistBadge+keyBadge+'</div>'
       + '</div>'
       + '<button class="icon-btn" onclick="viewSong('+i+')" title="View lyrics"><svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>'
-      + '<button class="icon-btn" onclick="addToSetlist(library['+i+']);flashAdded(this)" title="Add to setlist"><svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>'
+      + '<button class="icon-btn" onclick="if(addToSetlist(library['+i+'])===true)flashAdded(this)" title="Add to setlist"><svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>'
       + '<button class="icon-btn danger" id="del-btn-'+i+'" onclick="confirmDeleteSong('+i+',this)" title="Delete"><svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg></button>'
       + '</div>';
   }
@@ -2101,14 +2154,14 @@ function copySetlist(){
   sectionOrder.forEach(sec=>{
     if(!grouped[sec]) return;
     text+=sec+':\n';
-    setlist.filter(s=>s.section===sec).forEach(s=>{ const ek=cleanKey(s.key); text+='  • '+s.title+(ek?' [Key: '+ek+']':'')+'\n'; });
+    setlist.filter(s=>s.section===sec).forEach(s=>{ const ek=cleanKey(s.key); text+='  • '+s.title+(ek?' ('+ek+')':'')+'\n'; });
     text+='\n';
   });
   // Any custom sections not in the standard order
   Object.keys(grouped).forEach(sec=>{
     if(!sectionOrder.includes(sec)){
       text+=sec+':\n';
-      setlist.filter(s=>s.section===sec).forEach(s=>{ const ek=cleanKey(s.key); text+='  • '+s.title+(ek?' [Key: '+ek+']':'')+'\n'; });
+      setlist.filter(s=>s.section===sec).forEach(s=>{ const ek=cleanKey(s.key); text+='  • '+s.title+(ek?' ('+ek+')':'')+'\n'; });
       text+='\n';
     }
   });
@@ -2124,7 +2177,7 @@ function copySetlist(){
     if(!songs.length) return;
     text+=sec.toUpperCase()+'\n'+'='.repeat(40)+'\n\n';
     songs.forEach(s=>{
-      const ek=cleanKey(s.key); text+=s.title+(ek?'  ·  Key: '+ek:'')+'\n\n';
+      const ek=cleanKey(s.key); text+=s.title+'\n\n';
       text+=scrubNames(currentLyrics(s))+'\n\n';
       text+='-'.repeat(40)+'\n\n';
     });
