@@ -1422,7 +1422,9 @@ function renderMedley(filter){
       +'<summary style="cursor:pointer;padding:6px 0;font-size:13px;font-weight:600;font-family:system-ui,sans-serif;color:'+c[3]+'">'+c[1]+' <span style="font-weight:400;color:#9a9a9a">· '+group.length+'</span></summary>';
     group.forEach(function(m){
       var title = m.name ? m.name.split(' — ')[0].replace(/^(Praise|Worship|Offering|Altar Call) Medley$/,'').trim() : '';
-      if(!title) title = (m.service||'') ;
+      // generic service names ("Sunday Service") aren't real titles — use first → last song instead
+      var genericSvc=/^(sunday|domingo|servicio( dominical| del domingo)?|sunday (morning |evening )?service|worship service|service)$/i.test(titleKey(m.service||''));
+      if(!title && !genericSvc) title = (m.service||'');
       if(!title) title = m.songs[0]+(m.songs.length>1?' → '+m.songs[m.songs.length-1]:'');
       var badges='';
       if(m.date) badges+='<span class="badge special">'+escHtml(shortDate(m.date))+'</span>';
@@ -2699,6 +2701,6 @@ function exportJSON(){
 
 init();
 </script>
-<div id="app-version" style="position:fixed;right:10px;bottom:6px;font-size:10px;color:#9a9a9a;font-family:system-ui,sans-serif;opacity:.8;pointer-events:none;z-index:40">v48 · Oct 5, 2026</div>
+<div id="app-version" style="position:fixed;right:10px;bottom:6px;font-size:10px;color:#9a9a9a;font-family:system-ui,sans-serif;opacity:.8;pointer-events:none;z-index:40">v49 · Oct 5, 2026</div>
 </body>
 </html>
