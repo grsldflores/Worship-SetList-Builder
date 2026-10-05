@@ -206,8 +206,12 @@
     </div>
 
     <!-- Historical medley from your docs -->
-    <div class="card" style="padding:0 1.25rem">
-      <div style="padding:10px 0 6px;font-size:11px;color:#9a9a9a;text-transform:uppercase;letter-spacing:.07em;font-family:system-ui,sans-serif">Previous Medley's From Setlist</div>
+    <div class="card" style="padding:12px 1.25rem 4px">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+        <div style="font-size:11px;color:#9a9a9a;text-transform:uppercase;letter-spacing:.07em;font-family:system-ui,sans-serif">Medleys that work together <span id="medley-count"></span></div>
+      </div>
+      <input type="text" id="medley-filter" placeholder="Find a medley by song or name…" oninput="renderMedley()" style="margin-bottom:8px" />
+      <div id="medley-chips" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px"></div>
       <div id="medley-list"></div>
     </div>
   </div>
@@ -1346,64 +1350,107 @@ const MEDLEYS = [
   {type:'flow', songs:['Dame De Beber','Hay Momentos','Estamos Aquí Para Adorar'], note:'09/06 altar call trio — longing for His presence (Dame de Beber), gratitude beyond words (Hay Momentos), declaration of why we gather (Estamos Aquí Para Adorar).'},
 ];
 
-function renderMedley(filter){
-  filter = filter || '';
-  var list = document.getElementById('medley-list');
-  if(!list) return;
-  var html = '';
-  var shown = 0;
-
-  // Hardcoded medleys
-  for(var ri=0; ri<MEDLEYS.length; ri++){
-    var p = MEDLEYS[ri];
-    if(filter && !p.songs.some(function(s){ return s.toLowerCase().indexOf(filter.toLowerCase()) > -1; })) continue;
-    shown++;
-    var typeColor = p.type==='medley' ? '#3c3489' : '#085041';
-    var typeBg = p.type==='medley' ? '#eeedfe' : '#e1f5ee';
-    var typeLabel = p.type==='medley' ? 'Medley' : 'Natural flow';
-    var songsHtml = '';
-    for(var j=0; j<p.songs.length; j++){
-      songsHtml += '<strong style="font-size:13px;font-family:system-ui,sans-serif;color:#1a1a1a">'+p.songs[j]+'</strong>';
-      if(j < p.songs.length-1) songsHtml += '<span style="color:#9a9a9a;margin:0 4px"> &rarr; </span>';
-    }
-    html += '<div style="padding:12px 0;border-bottom:0.5px solid #e0dfdb;">'
-      + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap">'
-      + '<span style="font-size:11px;padding:2px 8px;border-radius:6px;background:'+typeBg+';color:'+typeColor+';font-family:system-ui,sans-serif">'+typeLabel+'</span>'
-      + '<div style="line-height:1.8">'+songsHtml+'</div>'
-      + '</div>'
-      + '<p style="font-size:12px;color:#6b6b6b;font-family:system-ui,sans-serif;line-height:1.5;margin-bottom:8px">'+p.note+'</p>'
-      + '<button style="font-size:12px;padding:5px 12px;cursor:pointer" onclick="addMedleyByIndex('+ri+')">+ Add all to setlist</button>'
-      + '</div>';
-  }
-
-  // Custom medleys (saved by user)
-  for(var ci=0; ci<customMedleys.length; ci++){
-    var cp = customMedleys[ci];
-    if(filter && !cp.songs.some(function(s){ return s.toLowerCase().indexOf(filter.toLowerCase()) > -1; })) continue;
-    shown++;
-    var cSongsHtml = '';
-    for(var cj=0; cj<cp.songs.length; cj++){
-      cSongsHtml += '<strong style="font-size:13px;font-family:system-ui,sans-serif;color:#1a1a1a">'+cp.songs[cj]+'</strong>';
-      if(cj < cp.songs.length-1) cSongsHtml += '<span style="color:#9a9a9a;margin:0 4px"> &rarr; </span>';
-    }
-    html += '<div style="padding:12px 0;border-bottom:0.5px solid #e0dfdb;">'
-      + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap">'
-      + '<span style="font-size:11px;padding:2px 8px;border-radius:6px;background:#faeeda;color:#633806;font-family:system-ui,sans-serif">My Medley</span>'
-      + '<span style="font-size:13px;font-weight:600;font-family:system-ui,sans-serif;color:#1a1a1a">'+cp.name+'</span>'
-      + '</div>'
-      + '<div style="line-height:1.8;margin-bottom:6px">'+cSongsHtml+'</div>'
-      + '<p style="font-size:12px;color:#6b6b6b;font-family:system-ui,sans-serif;line-height:1.5;margin-bottom:8px">'+cp.note+'</p>'
-      + '<div style="display:flex;gap:8px">'
-      + '<button style="font-size:12px;padding:5px 12px;cursor:pointer" onclick="addCustomMedleyToSetlist('+ci+')">+ Add all to setlist</button>'
-      + '<button style="font-size:12px;padding:5px 12px;cursor:pointer;color:#791f1f;border-color:rgba(0,0,0,0.1)" onclick="deleteCustomMedley('+ci+',this)">Delete</button>'
-      + '</div>'
-      + '</div>';
-  }
-
-  if(!shown) list.innerHTML = '<div style="padding:1.5rem 0;text-align:center;font-size:13px;color:#9a9a9a;font-family:system-ui,sans-serif">No medley found for that song.</div>';
-  else list.innerHTML = html;
+// ── MEDLEY LIST: grouped by section, newest first, searchable ──
+var _medleyCat='';
+var MEDLEY_CATS=[['praise','Praise / Avivamiento','#eeedfe','#3c3489'],['worship','Worship / Adoración','#e1f5ee','#085041'],['offering','Offering / Ofrenda','#faeeda','#633806'],['altar','Altar Call','#fcebeb','#791f1f'],['other','Special / Other','#f1f0ec','#5f5e5a']];
+function medleyCatOf(name, songs){
+  var n=titleKey(name||'');
+  if(/^(praise|jubilo|avivamiento)/.test(n)) return 'praise';
+  if(/^(worship|adoracion)/.test(n)) return 'worship';
+  if(/^(offering|ofrenda)/.test(n)) return 'offering';
+  if(/^(altar|llamado)/.test(n)) return 'altar';
+  // then the note: whichever section word appears first ("Offering pair…", "Altar call trio…")
+  var t=titleKey(arguments[2]||''), best0='', at=1e9;
+  [['offering',/offering|ofrenda/],['altar',/altar/],['worship',/worship|adoracion/],['praise',/praise|jubilo|avivamiento|alabanza/]].forEach(function(k){ var i=t.search(k[1]); if(i>=0 && i<at){ at=i; best0=k[0]; } });
+  if(best0) return best0;
+  var c={praise:0,worship:0,offering:0,altar:0,other:0};
+  (songs||[]).forEach(function(t){ var l=findLibrarySong(t); var sec=(l&&l.section)||'';
+    c[sec==='Praise/Avivamiento'?'praise':sec==='Worship/Adoración'?'worship':sec==='Offering/Ofrenda'?'offering':sec==='Altar Call'?'altar':'other']++; });
+  var best='other', bn=0; ['praise','worship','offering','altar','other'].forEach(function(k){ if(c[k]>bn){ bn=c[k]; best=k; } });
+  return best;
 }
-
+function medleyDateOf(text){
+  var m=String(text||'').match(/(\d{1,2})\/(\d{1,2})\/(\d{2,4})/); if(!m) return '';
+  var y=m[3].length===2?'20'+m[3]:m[3]; return y+'-'+String(m[1]).padStart(2,'0')+'-'+String(m[2]).padStart(2,'0');
+}
+function medleyExtras(note){
+  var m=String(note||'').match(/Extras?:\s*(.+)$/i); if(!m) return [];
+  return m[1].split(/,\s*/).map(function(x){ return titleKey(x.replace(/\.$/,'')); }).filter(Boolean);
+}
+function medleyKeyOf(text){ var m=String(text||'').match(/\b[Kk]ey (?:of )?([A-G][#b]?m?)\b/); return m?m[1]:''; }
+function allMedleys(){
+  var out=[];
+  MEDLEYS.forEach(function(p,ri){ if(!p||!p.songs) return; out.push({src:'built', idx:ri, type:p.type, name:'', songs:p.songs, note:p.note||''}); });
+  customMedleys.forEach(function(p,ci){ out.push({src:'team', idx:ci, type:'medley', name:p.name, songs:p.songs||[], note:p.note||''}); });
+  out.forEach(function(m){
+    m.cat=medleyCatOf(m.name, m.songs, m.note);
+    m.date=medleyDateOf(m.name)||medleyDateOf(m.note);
+    m.key=medleyKeyOf(m.note)||medleyKeyOf(m.name);
+    m.extras=medleyExtras(m.note);
+    m.service=(m.name.split(' — ')[1]||'').replace(/\s*\d{1,2}\/\d{1,2}\/\d{2,4}\s*$/,'').trim();
+  });
+  return out;
+}
+function setMedleyCat(c){ _medleyCat=(_medleyCat===c?'':c); renderMedley(); }
+function renderMedley(filter){
+  var list=document.getElementById('medley-list'); if(!list) return;
+  var fEl=document.getElementById('medley-filter');
+  if(typeof filter==='string' && fEl) fEl.value=filter;
+  var q=searchKey(fEl?fEl.value:(filter||''));
+  var all=allMedleys();
+  var matches=all.filter(function(m){
+    if(!q) return true;
+    return searchKey(m.name).indexOf(q)>=0 || m.songs.some(function(t){ return searchKey(t).indexOf(q)>=0; });
+  });
+  // chips
+  var chips=document.getElementById('medley-chips');
+  if(chips) chips.innerHTML=MEDLEY_CATS.map(function(c){
+    var n=matches.filter(function(m){return m.cat===c[0];}).length; if(!n) return '';
+    var on=_medleyCat===c[0];
+    return '<button onclick="setMedleyCat(\''+c[0]+'\')" style="font-size:12px;padding:4px 10px;border-radius:999px;'+(on?'background:'+c[2]+';color:'+c[3]+';border:1.5px solid '+c[3]:'')+'">'+c[1].split(' / ')[0]+' <span style="opacity:.7">'+n+'</span></button>';
+  }).join('');
+  var shownList=matches.filter(function(m){ return !_medleyCat || m.cat===_medleyCat; });
+  var cnt=document.getElementById('medley-count'); if(cnt) cnt.textContent='('+shownList.length+')';
+  if(!shownList.length){ list.innerHTML='<div style="padding:1.5rem 0;text-align:center;font-size:13px;color:#9a9a9a;font-family:system-ui,sans-serif">No medley found'+(q?' with that song':'')+'.</div>'; return; }
+  var html='';
+  MEDLEY_CATS.forEach(function(c){
+    var group=shownList.filter(function(m){ return m.cat===c[0]; });
+    if(!group.length) return;
+    // newest dated first, then team-saved, then the rest
+    group.sort(function(a,b){ return (b.date||'').localeCompare(a.date||'') || (a.src===b.src?0:(a.src==='team'?-1:1)); });
+    html+='<details open style="border-top:0.5px solid #e0dfdb;padding:6px 0">'
+      +'<summary style="cursor:pointer;padding:6px 0;font-size:13px;font-weight:600;font-family:system-ui,sans-serif;color:'+c[3]+'">'+c[1]+' <span style="font-weight:400;color:#9a9a9a">· '+group.length+'</span></summary>';
+    group.forEach(function(m){
+      var title = m.name ? m.name.split(' — ')[0].replace(/^(Praise|Worship|Offering|Altar Call) Medley$/,'').trim() : '';
+      if(!title) title = (m.service||'') ;
+      if(!title) title = m.songs[0]+(m.songs.length>1?' → '+m.songs[m.songs.length-1]:'');
+      var badges='';
+      if(m.date) badges+='<span class="badge special">'+escHtml(shortDate(m.date))+'</span>';
+      if(m.key) badges+='<span class="badge special" style="background:#f0f5ff;color:#2d4fa0;font-weight:500">♪ '+escHtml(m.key)+'</span>';
+      badges+= m.src==='team' ? '<span class="badge special" style="background:#faeeda;color:#633806">Team saved</span>'
+                              : '<span class="badge special">'+(m.type==='flow'?'Natural flow':'From past setlists')+'</span>';
+      var songs=m.songs.map(function(t,k){
+        var isExtra=m.extras.some(function(x){ return titleKey(t).indexOf(x)===0 || x.indexOf(titleKey(t).split(' / ')[0])===0; });
+        var inLib=!!findLibrarySong(t);
+        return '<li style="margin:2px 0;'+(isExtra?'color:#6b6b6b;font-style:italic':'')+'">'+escHtml(t)
+          +(isExtra?' <span style="font-size:10px;font-style:normal;color:#9a9a9a">extra</span>':'')
+          +(inLib?'':' <span style="font-size:10px;color:#b35c00">not in library</span>')+'</li>';
+      }).join('');
+      var fn = m.src==='team' ? 'addCustomMedleyToSetlist('+m.idx+')' : 'addMedleyByIndex('+m.idx+')';
+      html+='<div style="padding:10px 0 12px;border-top:0.5px dashed #e0dfdb">'
+        +'<div style="font-size:14px;font-weight:600;font-family:system-ui,sans-serif;color:#1a1a1a;margin-bottom:4px">'+escHtml(title)+'</div>'
+        +(m.service&&title!==m.service?'<div style="font-size:12px;color:#6b6b6b;font-family:system-ui,sans-serif;margin-bottom:4px">'+escHtml(m.service)+'</div>':'')
+        +'<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px">'+badges+'</div>'
+        +'<ol style="margin:0 0 6px 18px;padding:0;font-size:13px;font-family:system-ui,sans-serif;line-height:1.5">'+songs+'</ol>'
+        +(m.note?'<p style="font-size:12px;color:#6b6b6b;font-family:system-ui,sans-serif;line-height:1.5;margin:0 0 8px">'+escHtml(m.note)+'</p>':'')
+        +'<div style="display:flex;gap:8px"><button style="font-size:12px;padding:5px 12px" onclick="'+fn+'">+ Add all to setlist</button>'
+        +(m.src==='team'?'<button style="font-size:12px;padding:5px 12px;color:#791f1f" onclick="deleteCustomMedley('+m.idx+',this)">Delete</button>':'')
+        +'</div></div>';
+    });
+    html+='</details>';
+  });
+  list.innerHTML=html;
+}
 
 function addMedleyByIndex(ri){
   var p = MEDLEYS[ri];
@@ -1413,7 +1460,7 @@ function addMedleyByIndex(ri){
   var added = 0;
   for(var k=0; k<songs.length; k++){
     var title = songs[k];
-    var match = null;
+    var match = findLibrarySong(title);
     var lib = library; // local ref
     for(var m=0; m<lib.length; m++){
       if(lib[m].title.toLowerCase() === title.toLowerCase()){ match = lib[m]; break; }
@@ -1585,7 +1632,7 @@ async function addCustomMedleyToSetlist(ci){
   var added = 0;
   for(var k=0; k<songs.length; k++){
     var title = songs[k];
-    var match = null;
+    var match = findLibrarySong(title);
     for(var m=0; m<lib.length; m++){
       if(lib[m].title.toLowerCase() === title.toLowerCase()){ match = lib[m]; break; }
     }
@@ -2652,6 +2699,6 @@ function exportJSON(){
 
 init();
 </script>
-<div id="app-version" style="position:fixed;right:10px;bottom:6px;font-size:10px;color:#9a9a9a;font-family:system-ui,sans-serif;opacity:.8;pointer-events:none;z-index:40">v47 · Oct 5, 2026</div>
+<div id="app-version" style="position:fixed;right:10px;bottom:6px;font-size:10px;color:#9a9a9a;font-family:system-ui,sans-serif;opacity:.8;pointer-events:none;z-index:40">v48 · Oct 5, 2026</div>
 </body>
 </html>
