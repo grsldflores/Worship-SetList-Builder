@@ -133,7 +133,7 @@
   <div id="pane-library" style="display:none">
     <div class="stat-grid" id="lib-stats"></div>
     <div class="search-row" style="flex-wrap:wrap">
-      <input type="text" id="lib-search" placeholder="Search songs or artist…" oninput="renderLibrary()" style="flex:1 1 100%;min-width:0" />
+      <input type="text" id="lib-search" placeholder="Search by title, artist or lyrics…" oninput="renderLibrary()" style="flex:1 1 100%;min-width:0" />
       <select id="lib-filter" onchange="setLibFilter(this.value)" oninput="setLibFilter(this.value)" style="flex:1 1 0;min-width:0">
         <option value="">All sections</option>
         <option value="bilingual">Bilingual</option>
@@ -377,11 +377,32 @@
   <div class="modal">
     <h3 id="view-title-el"></h3>
     <div id="view-meta" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px"></div>
+    <div id="view-versions" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:10px"></div>
+    <div id="view-ver-notes" style="display:none;font-size:12px;color:var(--text2);font-family:system-ui,sans-serif;margin:-4px 0 8px;font-style:italic"></div>
     <div class="lyrics-prev" id="view-lyrics-el" style="max-height:300px"></div>
     <div class="btn-row">
-      <button class="primary" onclick="addToSetlistFromView()">+ Add to setlist</button>
-      <button onclick="editSongLyrics(viewIdx)">✏️ Edit</button>
+      <button class="primary" id="view-add-btn" onclick="addToSetlistFromView()">+ Add to setlist</button>
+      <button id="view-edit-btn" onclick="editFromView()">✏️ Edit</button>
+      <button id="view-del-ver-btn" onclick="deleteVersionFromView(this)" style="display:none;color:#791f1f">Delete version</button>
       <button onclick="closeView()">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- VERSION MODAL -->
+<div class="overlay" id="ver-overlay">
+  <div class="modal">
+    <h3 id="ver-heading">Add version</h3>
+    <div id="ver-song" style="font-size:13px;color:var(--text2);font-family:system-ui,sans-serif;margin:-6px 0 10px"></div>
+    <div class="two-col">
+      <div class="field"><label>Version name</label><input type="text" id="ver-name" placeholder="e.g. Version 2" /></div>
+      <div class="field"><label>Key <span style="font-weight:400;font-size:10px;color:var(--text3);text-transform:none;letter-spacing:0">— optional</span></label><input type="text" id="ver-key" placeholder="same as original" /></div>
+    </div>
+    <div class="field"><label>Note <span style="font-weight:400;font-size:10px;color:var(--text3);text-transform:none;letter-spacing:0">— what's different, e.g. "chorus + bridge only"</span></label><input type="text" id="ver-notes" /></div>
+    <div class="field"><label>Lyrics <span style="font-weight:400;font-size:10px;color:var(--text3);text-transform:none;letter-spacing:0">— starts as a copy of the original; remove or rearrange parts</span></label><textarea id="ver-lyrics" rows="10"></textarea></div>
+    <div class="btn-row">
+      <button class="primary" id="ver-save" onclick="saveVersion()">Save version</button>
+      <button onclick="closeVersionModal()">Cancel</button>
     </div>
   </div>
 </div>
@@ -1051,7 +1072,7 @@ function useOfflineLibrary(){
 // ── INIT ─────────────────────────────────────────────────────────────────────
 async function init(){
   try{ loadDocColors(); }catch(e){}
-  document.getElementById('svc-date').value = new Date().toISOString().split('T')[0];
+  document.getElementById('svc-date').value = todayISO();
   setStatus('Loading songs…','info');
   try {
     applySongRows(await fetchSongs());
@@ -1063,6 +1084,7 @@ async function init(){
   renderLibrary();
   renderStats();
   loadHistory();
+  await loadVersions();
   await loadAppSettings();
   await loadSharedSetlist();
   startSetlistPolling();
@@ -1107,7 +1129,7 @@ function renderHistory(){
   if(!setlistHistory.length){ el.innerHTML='<div class="empty" style="padding:10px 0">No past setlists yet. Each time you tap Send to Google Docs or Copy setlist, the setlist is saved here.</div>'; return; }
   el.innerHTML=setlistHistory.map(function(h,hi){
     var n=(h.songs||[]).length;
-    var names=(h.songs||[]).map(function(s){return s.title;}).join(' · ');
+    var names=(h.songs||[]).map(function(s){return s.title+(s.version_name?' ('+s.version_name+')':'');}).join(' · ');
     return '<div class="song-row" style="align-items:flex-start"><div style="flex:1;min-width:0">'
       +'<div class="song-title">'+escHtml(shortDate(h.service_date))+'</div>'
       +'<div style="font-size:12px;color:var(--text2);font-family:system-ui,sans-serif;margin-top:2px">'+escHtml(h.service_title||'Service')+' · '+n+' song'+(n===1?'':'s')+'</div>'
@@ -1124,7 +1146,7 @@ function loadPastSetlist(hi, btn){
     setTimeout(function(){ if(btn){ delete btn.dataset.armed; btn.textContent='Load'; } }, 3500);
     return;
   }
-  setlist=(h.songs||[]).map(function(s){ var lib=findLibrarySong(s.title); return Object.assign({}, lib||{}, {title:s.title, section:s.section||(lib&&lib.section)||'Special', key:s.key||''}); });
+  setlist=(h.songs||[]).map(function(s){ var lib=findLibrarySong(s.title); var o=Object.assign({}, lib||{}, {title:s.title, section:s.section||(lib&&lib.section)||'Special', key:s.key||'', versionId:s.version_id||null, versionName:s.version_name||''}); if(o.versionId){ var v=findVersion(o.versionId); if(v){ o.lyrics=v.lyrics; o.versionName=v.name; } else { o.versionId=null; o.versionName=''; } } return o; });
   document.getElementById('svc-title').value=h.service_title||'';
   renderSetlist();
   setStatus('Loaded "'+(h.service_title||'Service')+' — '+shortDate(h.service_date)+'". Change the date before sending it out again.','success');
@@ -1133,7 +1155,7 @@ function loadPastSetlist(hi, btn){
 async function saveHistory(docUrl){
   var date=document.getElementById('svc-date').value; if(!date || !setlist.length) return;
   var row={service_date:date, service_title:document.getElementById('svc-title').value||'Worship Service',
-    songs:setlist.map(function(s){ return {title:s.title, section:s.section||'Special', key:s.key||''}; }), updated_at:new Date().toISOString()};
+    songs:setlist.map(function(s){ var o={title:s.title, section:s.section||'Special', key:s.key||''}; if(s.versionId){ o.version_id=s.versionId; o.version_name=s.versionName||''; } return o; }), updated_at:new Date().toISOString()};
   if(docUrl) row.doc_url=docUrl;
   try{
     const res=await sbFetch('setlist_history?on_conflict=service_date,service_title', {method:'POST', headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=representation'}, body:JSON.stringify(row)});
@@ -1147,7 +1169,7 @@ function setlistState(){
   return {
     service_date: document.getElementById('svc-date').value || null,
     service_title: document.getElementById('svc-title').value || '',
-    songs: setlist.map(function(s){ return {title:s.title, section:s.section, key:s.key||'', artist:s.artist||'', language:s.language||'', lyrics:s.lyrics||''}; })
+    songs: setlist.map(function(s){ var o={title:s.title, section:s.section, key:s.key||'', artist:s.artist||'', language:s.language||'', lyrics:s.lyrics||''}; if(s.versionId){ o.version_id=s.versionId; o.version_name=s.versionName||''; } return o; })
   };
 }
 function setSyncNote(t){ var el=document.getElementById('setlist-sync-note'); if(el) el.textContent=t||''; }
@@ -1190,9 +1212,12 @@ function findLibrarySong(title){
 function applyRemoteSetlist(row){
   setlist=(row.songs||[]).filter(function(x){return x && x.title;}).map(function(x){
     var lib=findLibrarySong(x.title);
-    return Object.assign({}, lib||{}, {title:(lib&&lib.title)||x.title, section:x.section||(lib&&lib.section)||'Special', key:(x.key!==undefined&&x.key!=='')?x.key:((lib&&lib.key)||''), artist:x.artist||(lib&&lib.artist)||'', language:x.language||(lib&&lib.language)||'', lyrics:(lib&&lib.lyrics)||x.lyrics||''});
+    var o=Object.assign({}, lib||{}, {title:(lib&&lib.title)||x.title, section:x.section||(lib&&lib.section)||'Special', key:(x.key!==undefined&&x.key!=='')?x.key:((lib&&lib.key)||''), artist:x.artist||(lib&&lib.artist)||'', language:x.language||(lib&&lib.language)||'', lyrics:(lib&&lib.lyrics)||x.lyrics||'', versionId:x.version_id||null, versionName:x.version_name||''});
+    if(o.versionId){ var v=findVersion(o.versionId); o.lyrics=(v&&v.lyrics)||x.lyrics||''; if(v) o.versionName=v.name; }
+    return o;
   });
-  if(row.service_date) document.getElementById('svc-date').value=row.service_date;
+  // A date that has already passed is from an old service — show today instead
+  document.getElementById('svc-date').value = (row.service_date && row.service_date>=todayISO()) ? row.service_date : todayISO();
   document.getElementById('svc-title').value=row.service_title||'';
   _lastSyncedJSON=JSON.stringify(setlistState());
   _lastRemoteAt=row.updated_at;
@@ -1777,6 +1802,7 @@ function renderSetlist(){
       </select>
       <div style="flex:1;min-width:0;overflow:hidden">
         <div class="song-title" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${s.title}</div>
+        ${s.versionName?`<div style="margin-top:2px"><span style="font-size:11px;font-weight:500;color:#4a3fa0;background:#eeedfe;border-radius:6px;padding:1px 6px;font-family:system-ui,sans-serif">${escHtml(s.versionName)}</span></div>`:''}
         ${s.key?`<div onclick="pickSetlistKey(${i})" title="Change key" style="font-size:11px;color:#2d4fa0;font-family:system-ui,sans-serif;margin-top:1px;cursor:pointer">♪ ${escHtml(s.key)}${parseKeys((findLibrarySong(s.title)||{}).key).length>1?' ▾':''}</div>`
           :(parseKeys((findLibrarySong(s.title)||{}).key).length?`<div onclick="pickSetlistKey(${i})" style="font-size:11px;color:var(--text3);font-family:system-ui,sans-serif;margin-top:1px;cursor:pointer">♪ choose key</div>`:'')}
       </div>
@@ -1857,7 +1883,7 @@ function clearSetlist(btn){
     return;
   }
   if(btn){ delete btn.dataset.armed; btn.textContent='Clear'; }
-  setlist=[]; renderSetlist(); setStatus('Setlist cleared.','info');
+  setlist=[]; document.getElementById('svc-date').value=todayISO(); renderSetlist(); setStatus('Setlist cleared.','info');
 }
 function flashAdded(btn){
   if(!btn) return;
@@ -1903,12 +1929,14 @@ function pickSetlistKey(i){
 
 var _lastAddTime=0, _lastAddTitle='';
 // returns true when added right away, 'ask' when the key picker opened first
-function addToSetlist(song, section, allowDuplicate){
+function addToSetlist(song, section, allowDuplicate, version){
+  if(version){ song=Object.assign({}, song, {versionId:version.id, versionName:version.name, lyrics:version.lyrics, key:version.key||song.key}); }
+  else if(song && song.versionId===undefined){ song=Object.assign({}, song, {versionId:null, versionName:''}); }
   const now=Date.now();
   if(!allowDuplicate && song.title===_lastAddTitle && now-_lastAddTime<600) return false; // block double-tap on mobile
   _lastAddTime=now; _lastAddTitle=song.title;
-  if(!allowDuplicate && setlist.some(function(x){ return titleKey(x.title)===titleKey(song.title); })){
-    openDupConfirm(song.title, function(){ addToSetlist(song, section, true); });
+  if(!allowDuplicate && setlist.some(function(x){ return titleKey(x.title)===titleKey(song.title) && (x.versionId||null)===(song.versionId||null); })){
+    openDupConfirm(song.title+(song.versionName?' ('+song.versionName+')':''), function(){ addToSetlist(song, section, true); });
     return 'ask';
   }
   var keys=parseKeys(song.key);
@@ -1981,6 +2009,23 @@ async function qkSave(){
 function qkSkip(){ _qkPos++; showQuickKey(); }
 function closeQuickKeys(){ document.getElementById('qk-overlay').classList.remove('open'); }
 
+// ── LYRIC SEARCH ── ignores accents, punctuation, // marks and line breaks
+function searchKey(t){ return String(t||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9ñ\s]/g,' ').replace(/\s+/g,' ').trim(); }
+var _lyrKeyCache = {};
+function lyricsKey(s){
+  var raw = s.lyrics||'';
+  var c = _lyrKeyCache[s.title];
+  if(!c || c.raw!==raw){ c = {raw:raw, key:' '+searchKey(raw)+' '}; _lyrKeyCache[s.title]=c; }
+  return c.key;
+}
+function lyricSnippet(s, lq){
+  var lines = String(s.lyrics||'').split('\n');
+  for(var i=0;i<lines.length;i++){ if(searchKey(lines[i]).indexOf(lq)>=0) return lines[i].replace(/\/+/g,'').trim(); }
+  // phrase runs across two lines
+  for(var j=0;j<lines.length-1;j++){ if(searchKey(lines[j]+' '+lines[j+1]).indexOf(lq)>=0) return (lines[j]+' / '+lines[j+1]).replace(/\/\/+/g,'').trim(); }
+  return '';
+}
+
 // ── LIBRARY ──────────────────────────────────────────────────────────────────
 var _libFilter = '';
 // ── KEY FILTER ──
@@ -2043,9 +2088,13 @@ function renderLibrary(){
   var rawQ = searchEl ? searchEl.value||'' : '';
   _lastSearchVal = rawQ; // keep the backup poll from redrawing the same results again
   var q = titleKey(rawQ);
+  var lq = searchKey(rawQ);
   var sec = _libFilter||'';
+  var lyricHit = {};
   var filtered = src.filter(function(s){
-    var matchQ = !q || titleKey(s.title).indexOf(q)>=0 || titleKey(s.artist).indexOf(q)>=0;
+    var matchT = !q || titleKey(s.title).indexOf(q)>=0 || titleKey(s.artist).indexOf(q)>=0;
+    var matchQ = matchT;
+    if(!matchT && lq.length>=3 && lyricsKey(s).indexOf(lq)>=0){ matchQ = true; lyricHit[s.title] = lyricSnippet(s, lq); }
     var matchSec = true;
     if(sec==='bilingual') matchSec = !!(s.language && s.language.indexOf('Bilingual')>=0);
     else if(sec==='praise') matchSec = s.section==='Praise/Avivamiento' || s.section==='Offering/Ofrenda';
@@ -2057,6 +2106,8 @@ function renderLibrary(){
   });
   var seen = {};
   var deduped = filtered.filter(function(s){ if(seen[s.title]) return false; seen[s.title]=1; return true; });
+  // title matches first, then songs found by their lyrics
+  deduped.sort(function(a,b){ return (lyricHit[a.title]!==undefined?1:0) - (lyricHit[b.title]!==undefined?1:0); });
   var el = document.getElementById('lib-rows');
   if(!el) return;
   if(!deduped.length){ el.innerHTML='<div class="empty">No matches.</div>'; return; }
@@ -2067,9 +2118,12 @@ function renderLibrary(){
     for(var li=0; li<library.length; li++){ if(library[li] && library[li].title===s.title){ i=li; break; } }
     var keyBadge = s.key ? '<span class="badge special" style="background:#f0f5ff;color:#2d4fa0;font-weight:500">&#9834; '+s.key+'</span>' : '';
     var artistBadge = s.artist ? '<span class="badge special">'+s.artist+'</span>' : '';
+    var nv = versionsFor(s).length;
+    if(nv) artistBadge += '<span class="badge special" style="background:#eeedfe;color:#4a3fa0" title="Other layouts of this song — open with the eye button">+'+nv+' version'+(nv===1?'':'s')+'</span>';
     rows += '<div class="song-row">'
       + '<div style="flex:1;min-width:0">'
       + '<div class="song-title">'+s.title+'</div>'
+      + (lyricHit[s.title]!==undefined ? '<div style="font-size:12px;color:var(--text2);font-family:system-ui,sans-serif;margin-top:2px;font-style:italic;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">“'+escHtml(lyricHit[s.title])+'”</div>' : '')
       + '<div style="margin-top:3px;display:flex;gap:4px;flex-wrap:wrap">'+getBadge(s.section)+artistBadge+keyBadge+lastSungBadge(s.title)+'</div>'
       + '</div>'
       + '<button class="icon-btn" onclick="viewSong('+i+')" title="View lyrics"><svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>'
@@ -2124,15 +2178,116 @@ async function deleteSong(i){
 }
 
 // ── VIEW MODAL ───────────────────────────────────────────────────────────────
-function viewSong(i){
-  viewIdx=i; const s=library[i];
+var _viewVerId=null;   // null = original
+function viewSong(i, verId){
+  viewIdx=i; _viewVerId=verId||null; const s=library[i]; if(!s) return;
+  const v=_viewVerId?findVersion(_viewVerId):null;
+  if(_viewVerId && !v) _viewVerId=null;
+  const key=(v&&v.key)||s.key;
   document.getElementById('view-title-el').textContent=s.title;
-  document.getElementById('view-meta').innerHTML=getBadge(s.section)+(s.artist?` <span class="badge special">${s.artist}</span>`:'')+( s.language?` <span class="badge special">${s.language}</span>`:'')+( s.key?` <span class="badge special" style="background:#f0f5ff;color:#2d4fa0;font-weight:500">♪ Key: ${s.key}</span>`:'');
-  document.getElementById('view-lyrics-el').textContent=s.lyrics||'(no lyrics)';
+  document.getElementById('view-meta').innerHTML=getBadge(s.section)+(s.artist?` <span class="badge special">${escHtml(s.artist)}</span>`:'')+( s.language?` <span class="badge special">${escHtml(s.language)}</span>`:'')+( key?` <span class="badge special" style="background:#f0f5ff;color:#2d4fa0;font-weight:500">♪ Key: ${escHtml(key)}</span>`:'');
+  // versions menu
+  const vers=versionsFor(s);
+  const tab=function(label,id,active){ return '<button onclick="viewSong('+i+','+(id?'\''+id+'\'':'null')+')" style="font-size:12px;padding:4px 10px;'+(active?'border:2px solid #4a3fa0;background:#eeedfe;font-weight:500':'')+'">'+escHtml(label)+'</button>'; };
+  document.getElementById('view-versions').innerHTML='<span style="font-size:11px;color:var(--text3);font-family:system-ui,sans-serif;text-transform:uppercase;letter-spacing:.06em">Versions</span>'
+    + tab('Original', null, !_viewVerId)
+    + vers.map(function(x){ return tab(x.name, x.id, _viewVerId===x.id); }).join('')
+    + '<button onclick="openAddVersion('+i+')" style="font-size:12px;padding:4px 10px;color:#4a3fa0">+ Add version</button>';
+  const notes=document.getElementById('view-ver-notes');
+  if(v && v.notes){ notes.textContent=v.notes; notes.style.display='block'; } else notes.style.display='none';
+  document.getElementById('view-lyrics-el').textContent=(v?v.lyrics:s.lyrics)||'(no lyrics)';
+  document.getElementById('view-add-btn').textContent = v ? '+ Add '+v.name+' to setlist' : '+ Add to setlist';
+  const del=document.getElementById('view-del-ver-btn'); del.style.display=v?'':'none'; delete del.dataset.armed; del.textContent='Delete version';
   document.getElementById('view-overlay').classList.add('open');
 }
 function closeView(){document.getElementById('view-overlay').classList.remove('open');}
-function addToSetlistFromView(){addToSetlist(library[viewIdx]);closeView();}
+function addToSetlistFromView(){
+  const v=_viewVerId?findVersion(_viewVerId):null;
+  addToSetlist(library[viewIdx], null, false, v);
+  closeView();
+}
+function editFromView(){
+  if(_viewVerId){ openEditVersion(viewIdx, _viewVerId); return; }
+  editSongLyrics(viewIdx);
+}
+
+// ── SONG VERSIONS (different layouts of the same song) ──
+var songVersions={}, _versionsReady=false;
+async function loadVersions(){
+  try{
+    const res=await sbFetch('song_versions?select=*&removed=eq.false&order=created_at.asc');
+    if(!res.ok) return;
+    const rows=await res.json(); songVersions={};
+    rows.forEach(function(r){ (songVersions[r.song_id]=songVersions[r.song_id]||[]).push(r); });
+    _versionsReady=true;
+    renderLibrary(); renderSetlist();
+  }catch(e){}
+}
+function versionsFor(song){ return (song && song._sbId && songVersions[song._sbId]) || []; }
+function findVersion(id){
+  if(!id) return null;
+  for(var k in songVersions){ var a=songVersions[k]; for(var j=0;j<a.length;j++) if(a[j].id===id) return a[j]; }
+  return null;
+}
+var _verSongIdx=-1, _verEditId=null;
+function openAddVersion(i){
+  const s=library[i]; if(!s) return;
+  if(!_versionsReady){ setStatus('Versions aren\'t available yet — the database needs a one-time update.','error'); return; }
+  _verSongIdx=i; _verEditId=null;
+  document.getElementById('ver-heading').textContent='Add version';
+  document.getElementById('ver-song').textContent=s.title+' — the original stays the same';
+  document.getElementById('ver-name').value='Version '+(versionsFor(s).length+2);
+  document.getElementById('ver-key').value='';
+  document.getElementById('ver-notes').value='';
+  document.getElementById('ver-lyrics').value=s.lyrics||'';
+  closeView();
+  document.getElementById('ver-overlay').classList.add('open');
+}
+function openEditVersion(i, id){
+  const s=library[i], v=findVersion(id); if(!s||!v) return;
+  _verSongIdx=i; _verEditId=id;
+  document.getElementById('ver-heading').textContent='Edit version';
+  document.getElementById('ver-song').textContent=s.title;
+  document.getElementById('ver-name').value=v.name;
+  document.getElementById('ver-key').value=v.key||'';
+  document.getElementById('ver-notes').value=v.notes||'';
+  document.getElementById('ver-lyrics').value=v.lyrics||'';
+  closeView();
+  document.getElementById('ver-overlay').classList.add('open');
+}
+function closeVersionModal(){ document.getElementById('ver-overlay').classList.remove('open'); }
+async function saveVersion(){
+  const s=library[_verSongIdx]; if(!s) return;
+  const name=document.getElementById('ver-name').value.trim();
+  const lyrics=document.getElementById('ver-lyrics').value;
+  if(!name){ setStatus('Give the version a name.','error'); return; }
+  if(!lyrics.trim()){ setStatus('Add the lyrics for this version.','error'); return; }
+  const v={name:name, key:document.getElementById('ver-key').value.trim(), notes:document.getElementById('ver-notes').value.trim(), lyrics:lyrics};
+  if(_verEditId) v.id=_verEditId; else v.song_id=s._sbId;
+  const btn=document.getElementById('ver-save'); btn.disabled=true; btn.textContent='Saving…';
+  try{
+    const row=await withPasscode(function(p){ return sbRpc('version_save', {p:p, v:v}); });
+    const list=(songVersions[s._sbId]=songVersions[s._sbId]||[]);
+    const at=list.findIndex(function(x){ return x.id===row.id; });
+    if(at>=0) list[at]=row; else list.push(row);
+    // songs already in the setlist with this version pick up the change
+    setlist.forEach(function(x){ if(x.versionId===row.id){ x.versionName=row.name; x.lyrics=row.lyrics; } });
+    closeVersionModal(); renderLibrary(); renderSetlist();
+    viewSong(_verSongIdx, row.id);
+    setStatus('"'+row.name+'" of "'+s.title+'" saved.','success');
+  }catch(e){ var m=saveErrorText(e,'save the version'); if(m) setStatus(m,'error'); }
+  finally{ btn.disabled=false; btn.textContent='Save version'; }
+}
+async function deleteVersionFromView(btn){
+  const s=library[viewIdx], v=findVersion(_viewVerId); if(!s||!v) return;
+  if(!btn.dataset.armed){ btn.dataset.armed='1'; btn.textContent='Tap again to delete'; setTimeout(function(){ delete btn.dataset.armed; btn.textContent='Delete version'; },3500); return; }
+  try{
+    await withPasscode(function(p){ return sbRpc('version_save', {p:p, v:{id:v.id, removed:true}}); });
+    songVersions[s._sbId]=versionsFor(s).filter(function(x){ return x.id!==v.id; });
+    renderLibrary(); viewSong(viewIdx, null);
+    setStatus('"'+v.name+'" deleted. The original is unchanged.','info');
+  }catch(e){ var m=saveErrorText(e,'delete the version'); if(m) setStatus(m,'error'); }
+}
 
 // ── EDIT MODAL ───────────────────────────────────────────────────────────────
 function editSongLyrics(i){ openEdit(i); }
@@ -2310,7 +2465,7 @@ function previewSetlist(){
   const dateStr=serviceDateLabel(title, date);
   let html=`<p style="font-weight:500;font-size:15px;margin-bottom:2px;font-family:system-ui,sans-serif">${title}</p>`;
   if(dateStr) html+=`<p style="font-size:12px;color:var(--text2);margin-bottom:14px;font-family:system-ui,sans-serif">${dateStr}</p>`;
-  setlist.forEach(s=>{html+=`<div style="margin-bottom:12px">${getBadge(s.section)} <strong style="font-size:13px;font-family:system-ui,sans-serif">${s.title}</strong><div class="lyrics-prev">${(s.lyrics||'').substring(0,200)}${(s.lyrics||'').length>200?'…':''}</div></div>`;});
+  setlist.forEach(s=>{const ly=currentLyrics(s); html+=`<div style="margin-bottom:12px">${getBadge(s.section)} <strong style="font-size:13px;font-family:system-ui,sans-serif">${escHtml(s.title)}${s.versionName?' — '+escHtml(s.versionName):''}</strong><div class="lyrics-prev">${escHtml(ly.substring(0,200))}${ly.length>200?'…':''}</div></div>`;});
   document.getElementById('preview-content').innerHTML=html;
   document.getElementById('preview-overlay').classList.add('open');
 }
@@ -2376,6 +2531,7 @@ function titleCaseLyrics(text){
 }
 
 function currentLyrics(s){
+  if(s.versionId){ var v=findVersion(s.versionId); if(v) return v.lyrics||''; return s.lyrics||''; }
   var lib=findLibrarySong(s.title);
   return (lib && lib.lyrics) || s.lyrics || '';
 }
@@ -2496,6 +2652,6 @@ function exportJSON(){
 
 init();
 </script>
-<div id="app-version" style="position:fixed;right:10px;bottom:6px;font-size:10px;color:#9a9a9a;font-family:system-ui,sans-serif;opacity:.8;pointer-events:none;z-index:40">v44 · Sep 23, 2026</div>
+<div id="app-version" style="position:fixed;right:10px;bottom:6px;font-size:10px;color:#9a9a9a;font-family:system-ui,sans-serif;opacity:.8;pointer-events:none;z-index:40">v47 · Oct 5, 2026</div>
 </body>
 </html>
