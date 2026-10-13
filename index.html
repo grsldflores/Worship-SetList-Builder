@@ -116,7 +116,7 @@
       <button onclick="openDriveModal()">Search Drive</button>
       <button onclick="switchMain('add');setTimeout(function(){var t=document.getElementById('import-text');t.scrollIntoView({behavior:'smooth',block:'center'});t.focus();},60)">📋 Paste setlist</button>
       <button onclick="previewSetlist()">Preview</button>
-      <button class="primary" onclick="sendSetlistToDocs()">Send to Google Docs</button>
+      <button class="primary doc-send-btn" onclick="sendSetlistToDocs()">Send to Google Docs</button>
       <button onclick="copySetlist()">Copy setlist</button>
       <button id="clear-setlist-btn" onclick="clearSetlist(this)" style="color:#791f1f">Clear</button>
     </div>
@@ -474,7 +474,7 @@
     <h3>Setlist preview</h3>
     <div id="preview-content"></div>
     <div class="btn-row">
-      <button class="primary" onclick="sendSetlistToDocs()">Send to Google Docs</button>
+      <button class="primary doc-send-btn" onclick="sendSetlistToDocs()">Send to Google Docs</button>
       <button onclick="copySetlist()">Copy setlist</button>
       <button onclick="document.getElementById('preview-overlay').classList.remove('open')">Close</button>
     </div>
@@ -1516,7 +1516,7 @@ async function loadHistory(){
     const res = await sbFetch('setlist_history?select=*&order=service_date.desc,updated_at.desc&limit=200');
     if(!res.ok) return;
     setlistHistory = await res.json();
-    buildLastSung(); renderHistory(); renderLibrary();
+    buildLastSung(); renderHistory(); renderLibrary(); refreshDocButtons();
     cacheSet('history', setlistHistory);
     var rc=document.getElementById('rotation-card'); if(rc && rc.open) renderRotation();
   }catch(e){}
@@ -1560,8 +1560,12 @@ function loadPastSetlist(hi, btn){
   }
   setlist=(h.songs||[]).map(function(s){ var lib=findLibrarySong(s.title); var o=Object.assign({}, lib||{}, {title:s.title, section:s.section||(lib&&lib.section)||'Special', key:s.key||'', versionId:s.version_id||null, versionName:s.version_name||''}); if(o.versionId){ var v=findVersion(o.versionId); if(v){ o.lyrics=v.lyrics; o.versionName=v.name; } else { o.versionId=null; o.versionName=''; } } return o; });
   document.getElementById('svc-title').value=h.service_title||'';
+  var upcoming = h.service_date && h.service_date>=todayISO();
+  if(upcoming) document.getElementById('svc-date').value=h.service_date;   // keep working on an upcoming service → same doc
   renderSetlist();
-  setStatus('Loaded "'+(h.service_title||'Service')+' — '+shortDate(h.service_date)+'". Change the date before sending it out again.','success');
+  setStatus(upcoming
+    ? 'Loaded "'+(h.service_title||'Service')+' — '+shortDate(h.service_date)+'". Make your changes, then tap Update Google Doc.'
+    : 'Loaded "'+(h.service_title||'Service')+' — '+shortDate(h.service_date)+'". Set the new service date before sending it out again.','success');
   window.scrollTo({top:0,behavior:'smooth'});
 }
 async function saveHistory(docUrl){
@@ -1586,6 +1590,7 @@ function setlistState(){
 }
 function setSyncNote(t){ var el=document.getElementById('setlist-sync-note'); if(el) el.textContent=t||''; }
 function syncSetlistSoon(){
+  refreshDocButtons();
   if(!_setlistLoaded) return;
   if(JSON.stringify(setlistState())===_lastSyncedJSON) return;
   setSyncNote('Saving…');
@@ -3003,6 +3008,24 @@ function currentLyrics(s){
   var lib=findLibrarySong(s.title);
   return (lib && lib.lyrics) || s.lyrics || '';
 }
+// The Google Doc already made for this service (same date + title), if any
+function existingSetlistDoc(){
+  var date=document.getElementById('svc-date').value;
+  var title=document.getElementById('svc-title').value||'Worship Service';
+  if(!date) return null;
+  for(var i=0;i<setlistHistory.length;i++){
+    var h=setlistHistory[i];
+    if(h.service_date===date && (h.service_title||'Worship Service')===title && h.doc_url) return h.doc_url;
+  }
+  return null;
+}
+function refreshDocButtons(){
+  var url=existingSetlistDoc();
+  document.querySelectorAll('.doc-send-btn').forEach(function(b){
+    b.textContent=url?'Update Google Doc':'Send to Google Docs';
+    b.title=url?'This service already has a Google Doc. Your changes will replace what is in that same doc.':'Creates a new Google Doc for this service.';
+  });
+}
 async function sendSetlistToDocs(){
   if(!setlist.length){ setStatus('Add songs to your setlist first.','error'); return; }
   document.getElementById('preview-overlay').classList.remove('open');
@@ -3020,10 +3043,26 @@ async function sendSetlistToDocs(){
     const mm=String(d.getMonth()+1).padStart(2,'0'), dd=String(d.getDate()).padStart(2,'0'), yy=String(d.getFullYear()).slice(-2);
     docTitle+=' - '+mm+'/'+dd+'/'+yy;
   }
+  const colors=getDocColors();
+  const payload={title:docTitle, heading:svcTitle, dateStr:dateStr, sections:sections, sectionColor:colors.section, songColor:colors.song, cueColor:colors.cue};
+  const existing=existingSetlistDoc();
+  if(existing){
+    setStatus('Updating the Google Doc…','info');
+    try{
+      const data=await callGoogle('updateSetlistDoc', Object.assign({docUrl:existing}, payload));
+      setStatusLink('Google Doc updated — same link as before.', data.url, 'Open the doc');
+      saveHistory(data.url);
+      return;
+    }catch(e){
+      var msg=(e&&e.message)||'';
+      if(/Unknown request/i.test(msg)){ setStatus('This doc can\'t be updated yet — the Google connection script still needs its update.','error'); return; }
+      if(!/doc_missing/i.test(msg)){ setStatus(googleErrorText(e),'error'); return; }
+      // the old doc was deleted — fall through and make a new one
+    }
+  }
   setStatus('Creating Google Doc…','info');
   try{
-    const colors=getDocColors();
-    const data=await callGoogle('createSetlistDoc',{title:docTitle, heading:svcTitle, dateStr:dateStr, sections:sections, sectionColor:colors.section, songColor:colors.song, cueColor:colors.cue});
+    const data=await callGoogle('createSetlistDoc', payload);
     setStatusLink('Google Doc created.', data.url, 'Open the doc');
     saveHistory(data.url);
   }catch(e){ setStatus(googleErrorText(e),'error'); }
@@ -3120,6 +3159,6 @@ function exportJSON(){
 
 init();
 </script>
-<div id="app-version" style="position:fixed;right:10px;bottom:6px;font-size:10px;color:#9a9a9a;font-family:system-ui,sans-serif;opacity:.8;pointer-events:none;z-index:40">v50 · Oct 5, 2026</div>
+<div id="app-version" style="position:fixed;right:10px;bottom:6px;font-size:10px;color:#9a9a9a;font-family:system-ui,sans-serif;opacity:.8;pointer-events:none;z-index:40">v52 · Oct 13, 2026</div>
 </body>
 </html>
