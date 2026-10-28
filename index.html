@@ -1161,7 +1161,15 @@ function titleIndex(){
     noParen.split(/\s+\/\s+|\//).forEach(function(p){ if(nk(p)) parts.push(nk(p)); });
     (s.title.match(/\(([^)]*)\)/g)||[]).forEach(function(p){ var x=nk(p); if(x.length>=4) parts.push(x); });
     var first=String(s.lyrics||'').split('\n').map(function(l){return l.replace(/\/+/g,'').trim();}).filter(function(l){ return l && !(sectionHeader(l)); })[0]||'';
-    return {song:s, parts:parts.filter(function(p,i,a){ return p && a.indexOf(p)===i; }), first:nk(first)};
+    // first line of every verse/chorus block, so a song is found by its Spanish OR English opening line
+    var starts=[], newBlock=true;
+    String(s.lyrics||'').split('\n').forEach(function(l){
+      var t=l.replace(/\/+/g,' ').trim();
+      if(!t){ newBlock=true; return; }
+      if(sectionHeader(t) || isLyricLabel(t)){ newBlock=true; return; }
+      if(newBlock){ var k=nk(t); if(k.split(' ').length>=3 && starts.indexOf(k)<0) starts.push(k); newBlock=false; }
+    });
+    return {song:s, parts:parts.filter(function(p,i,a){ return p && a.indexOf(p)===i; }), first:nk(first), starts:starts};
   });
   _titleIndexFor=library; return _titleIndex;
 }
@@ -1185,6 +1193,8 @@ function matchSongTitle(raw, strict){
       }
     });
     if(!strict && sc<0.7 && c.split(' ').length>=2 && e.first && e.first.indexOf(c)===0) sc=0.7;
+    // other language: "Cuan grande es Dios" -> the CORO of How Great Is Our God
+    if(!strict && sc<0.7 && c.split(' ').length>=3 && e.starts && e.starts.some(function(st){ return st.indexOf(c)===0 || ((' '+st+' ').indexOf(' '+c+' ')>=0 && st.split(' ').length<=c.split(' ').length+3); })) sc=0.7;
     if(sc>0) all.push({song:e.song, sc:sc});
     if(sc>score){ score=sc; best=e.song; }
   });
@@ -1193,8 +1203,8 @@ function matchSongTitle(raw, strict){
   return best;
 }
 var _lastAlts=[];
-var IMPORT_SECTION_RE=[[/^(praise|jubilo|avivamiento|alabanza)/,'Praise/Avivamiento'],[/^(worship|adoracion)/,'Worship/Adoración'],[/^(offering|ofrenda)/,'Offering/Ofrenda'],[/^(altar|llamado)/,'Altar Call'],[/^(special|especial)/,'Special']];
-var SECTION_WORDS_RE=/\b(praise|jubilo|avivamiento|alabanza|worship|adoracion|offering|ofrenda|altar|call|llamado|al|special|especial)\b/g;
+var IMPORT_SECTION_RE=[[/^(praise|jubilo|avivamiento|alabanza)/,'Praise/Avivamiento'],[/^(worship|adoracion)/,'Worship/Adoración'],[/^(offering|ofrenda)/,'Offering/Ofrenda'],[/^(altar|llamado)/,'Altar Call'],[/^(special|especial|canto especial)/,'Special']];
+var SECTION_WORDS_RE=/\b(praise|jubilo|avivamiento|alabanza|worship|adoracion|offering|ofrenda|altar|call|llamado|al|special|especial|canto)\b/g;
 var IMPORT_KEY_RE=/^([A-G])\s*(\\?#|b|♯|♭)?\s*(m|min|minor)?$/;
 function importKey(t){
   var m=String(t||'').trim().match(IMPORT_KEY_RE); if(!m) return '';
@@ -1202,7 +1212,7 @@ function importKey(t){
   return m[1]+acc+(m[3]?'m':'');
 }
 function splitTrailingKey(name){
-  var m=String(name||'').match(/^(.*\S)\s+([A-G](?:\\?#|b|♯|♭)?m?)\s*$/);
+  var m=String(name||'').match(/^(.*\S)\s+([A-G](?:\\?#|b|♯|♭)?m?)(?:\s+[A-Z][A-Z0-9#\/b ]*)?\s*$/);
   if(!m || nk(m[1]).length<3) return {name:name, key:''};
   return {name:m[1], key:importKey(m[2])};
 }
@@ -1232,14 +1242,14 @@ function parseImportDate(t){
 }
 function parseSetlistText(raw){
   var out={title:'', date:'', items:[], links:[]};
-  var section=null, extra=false, skip=false, inLyrics=false, lastItem=null, sectionKey='';
+  var section=null, extra=false, skip=false, inLyrics=false, lastItem=null, sectionKey='', extraKey='';
   var seen={};
   function addSong(name, opts){
     opts=opts||{};
     var note='', pKey=''; name=String(name||'').replace(/\(([^)]*)\)/g,function(_,a){ var k=importKey(a); if(k) pKey=k; else if(a.trim()) note=a.trim(); return ' '; });
     var keyM=name.match(/\b[Kk]ey(?: of)?\s*:?\s*([A-G][#b]?m?)\b/); var key=keyM?keyM[1]:(pKey||'');
     if(!keyM){ var tk=splitTrailingKey(name.trim()); if(tk.key){ name=tk.name; if(!key) key=tk.key; } }
-    if(!key) key=opts.key||sectionKey||'';
+    if(!key) key=opts.key||(extra&&extraKey)||sectionKey||'';
     name=name.replace(/\b[Kk]ey(?: of)?\s*:?\s*[A-G][#b]?m?\b/g,'').replace(/[:|]+/g,' ').replace(/\s{2,}/g,' ').trim();
     if(!name || nk(name).length<3) return null;
     var m=matchSongTitle(name, !!opts.strict || (opts.splitSlash && name.indexOf('/')>=0));
@@ -1254,7 +1264,7 @@ function parseSetlistText(raw){
     var it={raw:name, match:m, alts:m?_lastAlts.slice():[], section:section||(m&&m.section)||'Special', extra:opts.strict?false:extra, note:note, key:key, fromLyrics:!!opts.strict, link:''};
     out.items.push(it); seen[id]=it; lastItem=it; return it;
   }
-  var L=String(raw||'').replace(/\r/g,'').split('\n').map(function(x){ return x.replace(/\s+/g,' ').trim(); });
+  var L=String(raw||'').replace(/\r/g,'').split('\n').map(function(x){ return x.replace(/\s+/g,' ').trim().replace(/^[*•·▪◦]\s*/,'').replace(/^[-–]\s+/,''); });
   function seenMatch(t){
     var c=nk(t); if(!c) return null;
     for(var id in seen){ var it=seen[id]; var tk=nk(it.match?it.match.title:it.raw), rk=nk(it.raw);
@@ -1273,12 +1283,12 @@ function parseSetlistText(raw){
       return;
     }
     var k=nk(t);
-    if(/\bpractice\b|^next time|^practica/.test(k)){ skip=true; return; }
+    if(/\bpractice\b|^next time|^practica|^escuela dominical|^sunday school/.test(k)){ skip=true; return; }
     if(/^(singers?|cantantes|musicos|musicians)\b/.test(k)) return;
     var sh=importSectionOf(t);
     if(sh){
       section=sh.section; extra=false; skip=false;
-      if(!inLyrics) sectionKey=sh.key||'';   // a key next to the section name covers every song in it
+      if(!inLyrics){ sectionKey=sh.key||''; extraKey=''; }   // a key next to the section name covers every song in it
       var rest=sh.rest.replace(/\(\s*\)/g,'').trim();
       if(rest && !inLyrics) addSong(rest,{splitSlash:true, inline:true});
       return;
@@ -1286,6 +1296,7 @@ function parseSetlistText(raw){
     if(/^extras?\b/.test(k)){
       extra=true;
       var r2=t.replace(/^[^:]*:?/,'').trim();
+      if(!inLyrics){ var ek=importKey(r2.replace(/[()]/g,'')); if(ek){ extraKey=ek; r2=''; } }
       if(r2 && !inLyrics) addSong(r2,{splitSlash:true, inline:true, dropUnmatched:true});
       return;
     }
@@ -1339,7 +1350,9 @@ function importHeadingKey(line){
 function extractImportLyrics(raw, item, items){
   var L=String(raw||'').replace(/\r/g,'').split('\n').map(function(x){ return x.replace(/\\([#*!\-\[\]])/g,'$1').replace(/\s+$/,''); });
   var target=nk(item.raw); if(target.length<3) return '';
-  var others={}; items.forEach(function(o){ if(o!==item) others[nk(o.match?o.match.title:o.raw)]=1; if(o!==item) others[nk(o.raw)]=1; });
+  var others=[]; items.forEach(function(o){ if(o!==item){ others.push(nk(o.match?o.match.title:o.raw)); others.push(nk(o.raw)); } });
+  var BULLET=/^\s*([*•·▪◦]|[-–]\s)/;
+  function isOther(hk){ return hk.length>=4 && others.some(function(o){ return o && (o===hk || (hk.length>=6 && o.indexOf(hk)===0) || (o.length>=6 && hk.indexOf(o)===0)); }); }
   function isTarget(line){
     var c=importHeadingKey(line); if(!c) return false;
     return c===target || (target.length>=6 && c.indexOf(target)===0) || (c.length>=6 && target.indexOf(c)===0);
@@ -1347,15 +1360,18 @@ function extractImportLyrics(raw, item, items){
   function nextNonBlank(j){ while(j<L.length && !L[j].trim()) j++; return j<L.length?L[j].trim():''; }
   var best='', bestCount=0;
   for(var i=0;i<L.length;i++){
-    if(!L[i].trim() || !isTarget(L[i])) continue;
+    if(!L[i].trim() || BULLET.test(L[i]) || !isTarget(L[i])) continue;
+    if(BULLET.test(nextNonBlank(i+1))) continue;   // that's the song list, not the lyrics
     var block=[];
     for(var j=i+1;j<L.length;j++){
       var t=L[j].trim();
       if(t){
         if(/^-{3,}$|^_{3,}$|^\*{3,}$/.test(t)) break;
         if(importSectionOf(t) && !isLyricLabel(t)) break;
+        if(BULLET.test(t)) break;
         if(/^(extras?|practice|next time|practica)\b/i.test(nk(t))) break;
-        var prevBlank=j>0 && !L[j-1].trim();
+        var prevBlank=j>0 && !L[j-1].trim(), nextBlank=(j+1>=L.length || !L[j+1].trim());
+        if((prevBlank||nextBlank) && t.length<=60 && !isLyricLabel(t) && isOther(importHeadingKey(t))) break;
         if(prevBlank && t.length<=60 && !isLyricLabel(t)){
           var hk=importHeadingKey(t), nx=nextNonBlank(j+1), nxBlank=(j+1<L.length && !L[j+1].trim());
           if((others[hk] || matchSongTitle(t.replace(/^#+\s*/,''),true) || /^#/.test(t)) && (nxBlank || isLyricLabel(nx) || /^#/.test(t))) break;
@@ -1367,6 +1383,9 @@ function extractImportLyrics(raw, item, items){
     if(count>bestCount){ bestCount=count; best=block.join('\n'); }
   }
   if(bestCount<2) return '';
+  var BL=best.split('\n');   // drop cues left at the end ("Small Pause", "Instrumental", "Maybe"…)
+  while(BL.length && (!BL[BL.length-1].trim() || /^(small pause|pause|pausa|instrumental( or small pause.*)?|mini instrumental|maybe|extra:?|to switch|song change)$/i.test(BL[BL.length-1].trim()))) BL.pop();
+  best=BL.join('\n');
   return best.replace(/^\s*\n+/,'').replace(/\n{3,}/g,'\n\n').trim();
 }
 function guessLanguage(text){
@@ -1388,13 +1407,16 @@ function importNewKeys(){
 async function saveImportKeys(btn){
   var todo=importNewKeys(); if(!todo.length) return;
   if(!_libraryOnline){ setStatus('The song library is offline right now — keys can\'t be saved.','error'); return; }
+  var who=((document.getElementById('import-player')||{}).value||'').trim().replace(/[()]/g,'');
+  try{ localStorage.setItem('wsb_import_player', who); }catch(e){}
   btn.disabled=true; btn.textContent='Saving keys…';
   var done=0;
   for(var i=0;i<todo.length;i++){
     var s=todo[i].match;
     try{
-      var row=await withPasscode(function(p){ return sbRpc('song_save', {p:p, s:{id:s._sbId, title:s.title, key:todo[i].key}}); });
-      s.key=(row&&row.key)||todo[i].key; done++;
+      var full=todo[i].key+(who?' ('+who+')':'');
+      var row=await withPasscode(function(p){ return sbRpc('song_save', {p:p, s:{id:s._sbId, title:s.title, key:full}}); });
+      s.key=(row&&row.key)||full; done++;
     }catch(e){ var m=saveErrorText(e,'save the key'); setStatus(m||'Could not save every key.','error'); break; }
   }
   renderLibrary(); renderStats(); renderImport();
@@ -1443,8 +1465,17 @@ function renderImport(){
     +'<button onclick="applyImport(false)">Add to current setlist</button>'
     +'<button onclick="saveImportMedleys(this)">💾 Save sections as medleys</button>'
     +(im.links.some(function(l){return !l.song.link;})?'<button onclick="saveImportLinks(this)">▶ Save links</button>':'')
-    +(importNewKeys().length?'<button onclick="saveImportKeys(this)" title="'+escHtml(importNewKeys().map(function(it){return it.match.title+' — '+it.key;}).join('\n'))+'">🎹 Save '+importNewKeys().length+' missing key'+(importNewKeys().length===1?'':'s')+'</button>':'')
-    +'</div><div style="font-size:11px;color:var(--text3);font-family:system-ui,sans-serif;margin-top:4px">Extras and songs only found in the lyrics start unchecked — tick any you want. Medleys always include them.</div>';
+    +'</div>'
+    +(importNewKeys().length?(function(){
+        var nk2=importNewKeys(), who=''; try{ who=localStorage.getItem('wsb_import_player')||''; }catch(e){}
+        return '<div style="margin-top:12px;padding:10px 12px;background:#f0f5ff;border-radius:var(--radius);font-size:13px;font-family:system-ui,sans-serif">'
+          +'<b>🎹 '+nk2.length+' song'+(nk2.length===1?'':'s')+' with no key in the library</b><div style="font-size:12px;color:var(--text2);margin:4px 0 8px">'+nk2.map(function(it){return escHtml(it.match.title)+' — <b>'+escHtml(it.key)+'</b>';}).join(' · ')+'</div>'
+          +'<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><label style="margin:0;text-transform:none;letter-spacing:0;font-size:12px;color:var(--text2)">Played by</label>'
+          +'<input id="import-player" list="import-player-list" value="'+escHtml(who)+'" placeholder="Name (optional)" style="width:160px;padding:5px 8px;font-size:13px">'
+          +'<datalist id="import-player-list"><option value="Ryan"><option value="Karen"><option value="Candy"></datalist>'
+          +'<button onclick="saveImportKeys(this)">Save '+nk2.length+' key'+(nk2.length===1?'':'s')+'</button></div></div>';
+      })():'')
+    +'<div style="font-size:11px;color:var(--text3);font-family:system-ui,sans-serif;margin-top:4px">Extras and songs only found in the lyrics start unchecked — tick any you want. Medleys always include them.</div>';
   el.innerHTML=html; renderImportCounts();
 }
 function pickImportAlt(i, title){
@@ -1623,7 +1654,7 @@ function buildLastSung(){
   lastSungMap={}; var today=todayISO();
   setlistHistory.forEach(function(h){
     if(!h.service_date || h.service_date>today) return;   // only services that already happened
-    (h.songs||[]).forEach(function(s){ var k=titleKey(s.title); if(!lastSungMap[k] || lastSungMap[k]<h.service_date) lastSungMap[k]=h.service_date; });
+    (h.songs||[]).forEach(function(s){ var lib=findLibrarySong(s.title); var k=titleKey(lib?lib.title:s.title); if(!lastSungMap[k] || lastSungMap[k]<h.service_date) lastSungMap[k]=h.service_date; });
   });
 }
 function shortDate(iso){ if(!iso) return ''; var p=iso.split('-'); return (+p[1])+'/'+(+p[2])+'/'+p[0].slice(2); }
@@ -1722,7 +1753,9 @@ function findLibrarySong(title){
   var exact=library.find(function(x){ return x && x.title===title; });
   if(exact) return exact;
   var k=titleKey(title);
-  return library.find(function(x){ return x && x.title && titleKey(x.title)===k; }) || null;
+  var byKey=library.find(function(x){ return x && x.title && titleKey(x.title)===k; });
+  if(byKey) return byKey;
+  try{ return matchSongTitle(title, true) || null; }catch(e){ return null; }   // an old title, now saved as "Spanish / English" 
 }
 function applyRemoteSetlist(row){
   setlist=(row.songs||[]).filter(function(x){return x && x.title;}).map(function(x){
@@ -3257,6 +3290,6 @@ function exportJSON(){
 
 init();
 </script>
-<div id="app-version" style="position:fixed;right:10px;bottom:6px;font-size:10px;color:#9a9a9a;font-family:system-ui,sans-serif;opacity:.8;pointer-events:none;z-index:40">v54 · Oct 27, 2026</div>
+<div id="app-version" style="position:fixed;right:10px;bottom:6px;font-size:10px;color:#9a9a9a;font-family:system-ui,sans-serif;opacity:.8;pointer-events:none;z-index:40">v56 · Oct 27, 2026</div>
 </body>
 </html>
