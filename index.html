@@ -1606,7 +1606,7 @@ async function init(){
   setStatus('Loading songs…','info');
   try {
     var rows=await fetchSongs();
-    applySongRows(rows); cacheSet('songs', rows);
+    applySongRows(rows); cacheSet('songs', rows); _librarySig=songsSig(rows);
     setStatus('','info');
   } catch(e) {
     var c=cacheGet('songs');
@@ -1626,6 +1626,7 @@ async function init(){
   await loadAppSettings();
   await loadSharedSetlist();
   startSetlistPolling();
+  startLibraryPolling();
   await loadCustomMedleys();
   registerServiceWorker();
 }
@@ -1805,6 +1806,35 @@ async function pollSharedSetlist(){
 function startSetlistPolling(){
   setInterval(pollSharedSetlist, 15000);
   document.addEventListener('visibilitychange', function(){ if(document.visibilityState==='visible') pollSharedSetlist(); });
+}
+
+// ── KEEP THE LIBRARY FRESH (songs added on another device show up here) ──
+var _librarySig='', _libraryPolling=false;
+function songsSig(rows){
+  var m=''; rows.forEach(function(r){ var u=String(r.updated_at||r.created_at||''); if(u>m) m=u; });
+  return rows.length+'|'+m;
+}
+async function pollLibrary(){
+  if(_libraryPolling || document.visibilityState!=='visible') return;
+  _libraryPolling=true;
+  try{
+    var rows=await fetchSongs();
+    var sig=songsSig(rows);
+    if(sig!==_librarySig){
+      var wasOffline=!_libraryOnline;
+      _librarySig=sig; applySongRows(rows); cacheSet('songs', rows);
+      renderLibrary(); renderStats();
+      if(wasOffline) setStatus('','info');
+      loadVersions();
+    }
+  }catch(e){}
+  _libraryPolling=false;
+}
+function startLibraryPolling(){
+  setInterval(pollLibrary, 30000);
+  document.addEventListener('visibilitychange', function(){ if(document.visibilityState==='visible') pollLibrary(); });
+  window.addEventListener('online', pollLibrary);
+  window.addEventListener('pageshow', function(e){ if(e.persisted) pollLibrary(); });
 }
 
 // ── APP SETTINGS (Google connection) ─────────────────────────────────────────
