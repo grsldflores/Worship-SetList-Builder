@@ -1859,6 +1859,19 @@ function googleErrorText(e){
   return 'Could not reach Google — check your connection.';
 }
 function escHtml(t){ return String(t==null?'':t).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); }
+// ── ECHOES: anything in (parentheses) is the team echoing the lead → bold italic.
+//    Notes like (x2), (3x), (solo), (start high), (para terminar) stay normal.
+var ECHO_NOTE=/^\(\s*(x\s*\d+|\d+\s*x|solo\b.*|start\b.*|high|low\b.*|full run-through|to end\b.*|para terminar|repe\w*.*|\d+(st|nd|rd|th)\b.*)\s*\)$/i;
+function echoHTML(line){
+  var out='', last=0, re=/\([^()]*\)/g, m; line=String(line==null?'':line);
+  while((m=re.exec(line))){
+    out+=escHtml(line.slice(last, m.index));
+    out+= ECHO_NOTE.test(m[0]) ? escHtml(m[0]) : '<strong><em>'+escHtml(m[0])+'</em></strong>';
+    last=m.index+m[0].length;
+  }
+  return out+escHtml(line.slice(last));
+}
+function lyricsWithEchoesHTML(text){ return String(text||'').split('\n').map(echoHTML).join('\n'); }
 var _statusGen=0;
 function setStatusLink(msg, url, linkText){
   _statusGen++;
@@ -2821,7 +2834,9 @@ function viewSong(i, verId){
     + '<button onclick="openAddVersion('+i+')" style="font-size:12px;padding:4px 10px;color:#4a3fa0">+ Add version</button>';
   const notes=document.getElementById('view-ver-notes');
   if(v && v.notes){ notes.textContent=v.notes; notes.style.display='block'; } else notes.style.display='none';
-  document.getElementById('view-lyrics-el').textContent=(v?v.lyrics:s.lyrics)||'(no lyrics)';
+  const _ly=(v?v.lyrics:s.lyrics)||'';
+  if(_ly) document.getElementById('view-lyrics-el').innerHTML=lyricsWithEchoesHTML(_ly);
+  else document.getElementById('view-lyrics-el').textContent='(no lyrics)';
   document.getElementById('view-add-btn').textContent = v ? '+ Add '+v.name+' to setlist' : '+ Add to setlist';
   const lk=(v&&v.link)||s.link||'', lb=document.getElementById('view-link-btn');
   if(lk){ lb.href=lk; lb.style.display=''; } else { lb.style.display='none'; lb.removeAttribute('href'); }
@@ -3211,6 +3226,7 @@ async function sendSetlistToDocs(){
     setStatus('Updating the Google Doc…','info');
     try{
       const data=await callGoogle('updateSetlistDoc', Object.assign({docUrl:existing}, payload));
+      await italicizeDocEchoes(data.url, sections);
       setStatusLink('Google Doc updated — same link as before.', data.url, 'Open the doc');
       saveHistory(data.url);
       return;
@@ -3224,9 +3240,18 @@ async function sendSetlistToDocs(){
   setStatus('Creating Google Doc…','info');
   try{
     const data=await callGoogle('createSetlistDoc', payload);
+    await italicizeDocEchoes(data.url, sections);
     setStatusLink('Google Doc created.', data.url, 'Open the doc');
     saveHistory(data.url);
   }catch(e){ setStatus(googleErrorText(e),'error'); }
+}
+
+// Echoes in the Google Doc: the Apps Script italicizes (parentheses) after the doc is built.
+// If the script hasn't been updated yet this quietly does nothing.
+async function italicizeDocEchoes(url, sections){
+  if(!url) return;
+  var titles=[]; (sections||[]).forEach(function(sec){ sec.songs.forEach(function(x){ titles.push(x.title); }); });
+  try{ await callGoogle('italicizeEchoes', {docUrl:url, titles:titles}); }catch(e){}
 }
 
 // ── CREATE GOOGLE DOC ────────────────────────────────────────────────────────
@@ -3243,8 +3268,8 @@ function lyricLineHTML(line, cueColor){
     return '<p style="margin:0"><b>'+escHtml(t)+'</b></p>';
   }
   var c=line.match(/^\s*[A-ZÁÉÍÓÚÑÜ][A-ZÁÉÍÓÚÑÜ |]*:/);
-  if(c) return '<p style="margin:0">'+cue(c[0])+escHtml(line.slice(c[0].length))+'</p>';
-  return '<p style="margin:0">'+escHtml(line)+'</p>';
+  if(c) return '<p style="margin:0">'+cue(c[0])+echoHTML(line.slice(c[0].length))+'</p>';
+  return '<p style="margin:0">'+echoHTML(line)+'</p>';
 }
 function buildSetlistCopy(){
   const date=document.getElementById('svc-date').value;
@@ -3320,6 +3345,6 @@ function exportJSON(){
 
 init();
 </script>
-<div id="app-version" style="position:fixed;right:10px;bottom:6px;font-size:10px;color:#9a9a9a;font-family:system-ui,sans-serif;opacity:.8;pointer-events:none;z-index:40">v56 · Oct 27, 2026</div>
+<div id="app-version" style="position:fixed;right:10px;bottom:6px;font-size:10px;color:#9a9a9a;font-family:system-ui,sans-serif;opacity:.8;pointer-events:none;z-index:40">v57 · Nov 16, 2026</div>
 </body>
 </html>
