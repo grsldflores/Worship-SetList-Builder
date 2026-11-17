@@ -2,7 +2,7 @@
   ECHOES IN BOLD ITALIC: add-on for the Google connection script
 
   What it does: after the app creates or updates a setlist Google Doc, this
-  makes everything in (parentheses) in the lyrics bold and italic, so the team knows
+  makes everything in (parentheses) in the lyrics bold and italic and hides the parentheses, so the team knows
   those parts echo the lead singer.
   Notes like (x2), (3x), (solo), (start high), (para terminar) stay normal.
   The song summary list at the top and the song titles are not touched.
@@ -37,11 +37,15 @@ function italicizeEchoes_(req) {
     if (titles.some(function (t) { return low === t || low.indexOf(t + ' (') === 0; })) continue; // song titles / keys
 
     var edit = p.editAsText();
-    var re = /\([^()]*\)/g, x;
-    while ((x = re.exec(text))) {
-      if (NOTE.test(x[0])) continue;
-      edit.setItalic(x.index, x.index + x[0].length - 1, true);
-      edit.setBold(x.index, x.index + x[0].length - 1, true);
+    var re = /\([^()]*\)/g, x, hits = [];
+    while ((x = re.exec(text))) { if (!NOTE.test(x[0])) hits.push([x.index, x.index + x[0].length - 1]); }
+    // work from the end so earlier positions don't shift
+    for (var h = hits.length - 1; h >= 0; h--) {
+      var a = hits[h][0], b = hits[h][1];
+      edit.setBold(a, b, true);
+      edit.setItalic(a, b, true);
+      edit.deleteText(b, b);   // remove ")"
+      edit.deleteText(a, a);   // remove "("
       count++;
     }
   }
