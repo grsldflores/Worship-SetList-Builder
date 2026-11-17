@@ -1859,18 +1859,23 @@ function googleErrorText(e){
   return 'Could not reach Google — check your connection.';
 }
 function escHtml(t){ return String(t==null?'':t).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); }
-// ── ECHOES: anything in (parentheses) is the team echoing the lead → bold italic, parentheses hidden.
+// ── ECHOES (the team echoing the lead) → bold italic.
+//    (text)  shows with its parentheses, e.g. (oh-oh)
+//    [text]  hides the brackets, e.g. [se moverá, se moverá]
 //    Notes like (x2), (3x), (solo), (start high), (para terminar) stay normal.
 var ECHO_NOTE=/^\(\s*(x\s*\d+|\d+\s*x|solo\b.*|start\b.*|high|low\b.*|full run-through|to end\b.*|para terminar|repe\w*.*|\d+(st|nd|rd|th)\b.*)\s*\)$/i;
 function echoHTML(line){
-  var out='', last=0, re=/\([^()]*\)/g, m; line=String(line==null?'':line);
+  var out='', last=0, re=/\([^()]*\)|\[[^\[\]]*\]/g, m; line=String(line==null?'':line);
   while((m=re.exec(line))){
     out+=escHtml(line.slice(last, m.index));
-    out+= ECHO_NOTE.test(m[0]) ? escHtml(m[0]) : '<strong><em>'+escHtml(m[0].slice(1,-1).trim())+'</em></strong>';
-    last=m.index+m[0].length;
+    var x=m[0];
+    if(x.charAt(0)==='[') out+='<strong><em>'+escHtml(x.slice(1,-1))+'</em></strong>';
+    else out+= ECHO_NOTE.test(x) ? escHtml(x) : '<strong><em>'+escHtml(x)+'</em></strong>';
+    last=m.index+x.length;
   }
   return out+escHtml(line.slice(last));
 }
+function stripEchoBrackets(t){ return String(t||'').replace(/\[([^\[\]]*)\]/g,'$1'); }
 function lyricsWithEchoesHTML(text){ return String(text||'').split('\n').map(echoHTML).join('\n'); }
 var _statusGen=0;
 function setStatusLink(msg, url, linkText){
@@ -3295,7 +3300,7 @@ function buildSetlistCopy(){
     html+='<h1 style="page-break-before:always;color:'+colors.section+';font-size:20pt;margin:0 0 8pt">'+escHtml(sec.name.toUpperCase())+'</h1>';
     sec.songs.forEach(s=>{
       const ly=titleCaseLyrics(scrubNames(currentLyrics(s)));
-      text+=s.title+'\n\n'+ly+'\n\n';
+      text+=s.title+'\n\n'+stripEchoBrackets(ly)+'\n\n';
       html+='<h2 style="color:'+colors.song+';font-size:20pt;margin:14pt 0 4pt">'+escHtml(s.title)+'</h2>'+ly.split('\n').map(l=>lyricLineHTML(l, colors.cue)).join('');
     });
   });
